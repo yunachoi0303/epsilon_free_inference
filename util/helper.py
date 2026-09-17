@@ -1,7 +1,7 @@
 import numpy as np
 import numpy.random as rng
 import matplotlib.pyplot as plt
-import cPickle as pickle
+import pickle
 
 
 def disp_imdata(xs, imsize, layout=(1,1)):
@@ -114,8 +114,8 @@ def ess_mcmc(xs):
     xms = xs - mean
 
     acors = np.zeros_like(xms)
-    for i in xrange(n_dim):
-        for lag in xrange(n_samples):
+    for i in range(n_dim):
+        for lag in range(n_samples):
             acor = np.sum(xms[:n_samples-lag, i] * xms[lag:, i]) / (n_samples - lag)
             if acor <= 0.0: break
             acors[lag, i] = acor
@@ -184,8 +184,8 @@ def plot_pdf_marginals(pdf, lims, gt=None, levels=(0.68, 0.95)):
         lims = np.asarray(lims)
         lims = np.tile(lims, [pdf.ndim, 1]) if lims.ndim == 1 else lims
 
-        for i in xrange(pdf.ndim):
-            for j in xrange(pdf.ndim):
+        for i in range(pdf.ndim):
+            for j in range(pdf.ndim):
 
                 if i == j:
                     xx = np.linspace(lims[i, 0], lims[i, 1], 500)
@@ -235,8 +235,8 @@ def plot_hist_marginals(data, lims=None, gt=None):
             lims = np.asarray(lims)
             lims = np.tile(lims, [n_dim, 1]) if lims.ndim == 1 else lims
 
-        for i in xrange(n_dim):
-            for j in xrange(n_dim):
+        for i in range(n_dim):
+            for j in range(n_dim):
 
                 if i == j:
                     ax[i, j].hist(data[:, i], n_bins, normed=True)

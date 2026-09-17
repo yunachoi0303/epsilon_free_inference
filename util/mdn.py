@@ -1,5 +1,4 @@
 from __future__ import division
-from itertools import izip
 
 import numpy as np
 import numpy.random as rng
@@ -52,15 +51,15 @@ class MDN:
 
         # mixture means
         # the mean of each component is calculated separately. consider vectorizing this
-        self.Wms = [theano.shared((rng.randn(self.net.n_outputs, n_outputs) / np.sqrt(self.net.n_outputs + 1)).astype(dtype), name='Wm'+str(i)) for i in xrange(n_components)]
-        self.bms = [theano.shared(rng.randn(n_outputs).astype(dtype), name='bm'+str(i)) for i in xrange(n_components)]
-        self.ms = [tt.dot(self.net.hs[-1], Wm) + bm for Wm, bm in izip(self.Wms, self.bms)]
+        self.Wms = [theano.shared((rng.randn(self.net.n_outputs, n_outputs) / np.sqrt(self.net.n_outputs + 1)).astype(dtype), name='Wm'+str(i)) for i in range(n_components)]
+        self.bms = [theano.shared(rng.randn(n_outputs).astype(dtype), name='bm'+str(i)) for i in range(n_components)]
+        self.ms = [tt.dot(self.net.hs[-1], Wm) + bm for Wm, bm in zip(self.Wms, self.bms)]
 
         # mixture precisions
         # note that U here is an upper triangular matrix such that U'*U is the precision
-        self.WUs = [theano.shared((rng.randn(self.net.n_outputs, n_outputs**2) / np.sqrt(self.net.n_outputs + 1)).astype(dtype), name='WU'+str(i)) for i in xrange(n_components)]
-        self.bUs = [theano.shared(rng.randn(n_outputs**2).astype(dtype), name='bU'+str(i)) for i in xrange(n_components)]
-        aUs = [tt.reshape(tt.dot(self.net.hs[-1], WU) + bU, [-1, n_outputs, n_outputs]) for WU, bU in izip(self.WUs, self.bUs)]
+        self.WUs = [theano.shared((rng.randn(self.net.n_outputs, n_outputs**2) / np.sqrt(self.net.n_outputs + 1)).astype(dtype), name='WU'+str(i)) for i in range(n_components)]
+        self.bUs = [theano.shared(rng.randn(n_outputs**2).astype(dtype), name='bU'+str(i)) for i in range(n_components)]
+        aUs = [tt.reshape(tt.dot(self.net.hs[-1], WU) + bU, [-1, n_outputs, n_outputs]) for WU, bU in zip(self.WUs, self.bUs)]
         triu_mask = np.triu(np.ones([n_outputs, n_outputs], dtype=dtype), 1)
         diag_mask = np.eye(n_outputs, dtype=dtype)
         self.Us = [triu_mask * aU + diag_mask * tt.exp(diag_mask * aU) for aU in aUs]
@@ -68,7 +67,7 @@ class MDN:
 
         # log probabilities
         self.y = tt.matrix('y')
-        lprobs_comps = [-0.5 * tt.sum(tt.sum((self.y-m).dimshuffle([0, 'x', 1]) * U, axis=2)**2, axis=1) + ldetU for m, U, ldetU in izip(self.ms, self.Us, ldetUs)]
+        lprobs_comps = [-0.5 * tt.sum(tt.sum((self.y-m).dimshuffle([0, 'x', 1]) * U, axis=2)**2, axis=1) + ldetU for m, U, ldetU in zip(self.ms, self.Us, ldetUs)]
         self.lprobs = tt.log(tt.sum(tt.exp(tt.stack(lprobs_comps, axis=1) + tt.log(self.a)), axis=1)) - (0.5 * n_outputs * np.log(2*np.pi))
         self.mlprob = -tt.mean(self.lprobs)
 
@@ -102,14 +101,14 @@ class MDN:
         self.ba.set_value(np.zeros(self.n_components, dtype=dtype))
 
         # initialize means approx with the data means
-        for Wm, bm in izip(self.Wms, self.bms):
+        for Wm, bm in zip(self.Wms, self.bms):
             Wm.set_value((rng.randn(self.net.n_outputs, self.n_outputs) / np.sqrt(self.net.n_outputs + 1)).astype(dtype))
             bm.set_value(m.astype(dtype) + 0.1 * rng.randn(self.n_outputs).astype(dtype))
 
         # initialize precisions with the data precisions
         diag_mask = np.eye(n_dim, dtype=bool)
         U[diag_mask] = np.log(U[diag_mask])
-        for WU, bU in izip(self.WUs, self.bUs):
+        for WU, bU in zip(self.WUs, self.bUs):
             WU.set_value((rng.randn(self.net.n_outputs, self.n_outputs**2) / np.sqrt(self.net.n_outputs + 1)).astype(dtype))
             bU.set_value(U.flatten().astype(dtype))
 
@@ -220,7 +219,7 @@ class MDN:
         )
         activations = forwprop(x.astype(dtype))
 
-        for a, title in izip(activations, ['mixing coefficients', 'means', 'scale matrices']):
+        for a, title in zip(activations, ['mixing coefficients', 'means', 'scale matrices']):
 
             fig = plt.figure()
             ax = fig.add_subplot(1, 1, 1)
@@ -247,7 +246,7 @@ class MDN:
         all_WU = np.concatenate([WU.get_value().flatten() for WU in self.WUs])
         all_bU = np.concatenate([bU.get_value().flatten() for bU in self.bUs])
 
-        for W, b, title in izip([all_Wa, all_Wm, all_WU], [all_ba, all_bm, all_bU], ['mixing coefficients', 'means', 'scale matrices']):
+        for W, b, title in zip([all_Wa, all_Wm, all_WU], [all_ba, all_bm, all_bU], ['mixing coefficients', 'means', 'scale matrices']):
 
             fig, (ax1, ax2) = plt.subplots(1, 2)
 
@@ -315,26 +314,26 @@ class MDN_SVI:
 
         # mixture means
         # the mean of each component is calculated separately. consider vectorizing this
-        self.mWms = [theano.shared((rng.randn(self.net.n_outputs, n_outputs) / np.sqrt(self.net.n_outputs + 1)).astype(dtype), name='mWm'+str(i)) for i in xrange(n_components)]
-        self.mbms = [theano.shared(rng.randn(n_outputs).astype(dtype), name='mbm'+str(i)) for i in xrange(n_components)]
-        self.sWms = [theano.shared(-5.0 * np.ones([self.net.n_outputs, n_outputs], dtype=dtype), name='sWm'+str(i)) for i in xrange(n_components)]
-        self.sbms = [theano.shared(-5.0 * np.ones(n_outputs, dtype=dtype), name='sbm'+str(i)) for i in xrange(n_components)]
-        uams = [self.srng.normal((self.net.hs[-1].shape[0], n_outputs), dtype=dtype) for i in xrange(n_components)]
-        mams = [tt.dot(self.net.hs[-1], mWm) + mbm for mWm, mbm in izip(self.mWms, self.mbms)]
-        sams = [tt.dot(self.net.hs[-1]**2, tt.exp(2*sWm)) + tt.exp(2*sbm) for sWm, sbm in izip(self.sWms, self.sbms)]
-        zams = [tt.sqrt(sam) * uam + mam for sam, uam, mam in izip(sams, uams, mams)]
+        self.mWms = [theano.shared((rng.randn(self.net.n_outputs, n_outputs) / np.sqrt(self.net.n_outputs + 1)).astype(dtype), name='mWm'+str(i)) for i in range(n_components)]
+        self.mbms = [theano.shared(rng.randn(n_outputs).astype(dtype), name='mbm'+str(i)) for i in range(n_components)]
+        self.sWms = [theano.shared(-5.0 * np.ones([self.net.n_outputs, n_outputs], dtype=dtype), name='sWm'+str(i)) for i in range(n_components)]
+        self.sbms = [theano.shared(-5.0 * np.ones(n_outputs, dtype=dtype), name='sbm'+str(i)) for i in range(n_components)]
+        uams = [self.srng.normal((self.net.hs[-1].shape[0], n_outputs), dtype=dtype) for i in range(n_components)]
+        mams = [tt.dot(self.net.hs[-1], mWm) + mbm for mWm, mbm in zip(self.mWms, self.mbms)]
+        sams = [tt.dot(self.net.hs[-1]**2, tt.exp(2*sWm)) + tt.exp(2*sbm) for sWm, sbm in zip(self.sWms, self.sbms)]
+        zams = [tt.sqrt(sam) * uam + mam for sam, uam, mam in zip(sams, uams, mams)]
         self.ms = zams
 
         # mixture precisions
         # note that U here is an upper triangular matrix such that U'*U is the precision
-        self.mWUs = [theano.shared((rng.randn(self.net.n_outputs, n_outputs**2) / np.sqrt(self.net.n_outputs + 1)).astype(dtype), name='mWU'+str(i)) for i in xrange(n_components)]
-        self.mbUs = [theano.shared(rng.randn(n_outputs**2).astype(dtype), name='mbU'+str(i)) for i in xrange(n_components)]
-        self.sWUs = [theano.shared(-5.0 * np.ones([self.net.n_outputs, n_outputs**2], dtype=dtype), name='sWU'+str(i)) for i in xrange(n_components)]
-        self.sbUs = [theano.shared(-5.0 * np.ones(n_outputs**2, dtype=dtype), name='sbU'+str(i)) for i in xrange(n_components)]
-        uaUs = [self.srng.normal((self.net.hs[-1].shape[0], n_outputs**2), dtype=dtype) for i in xrange(n_components)]
-        maUs = [tt.dot(self.net.hs[-1], mWU) + mbU for mWU, mbU in izip(self.mWUs, self.mbUs)]
-        saUs = [tt.dot(self.net.hs[-1]**2, tt.exp(2*sWU)) + tt.exp(2*sbU) for sWU, sbU in izip(self.sWUs, self.sbUs)]
-        zaUs = [tt.sqrt(saU) * uaU + maU for saU, uaU, maU in izip(saUs, uaUs, maUs)]
+        self.mWUs = [theano.shared((rng.randn(self.net.n_outputs, n_outputs**2) / np.sqrt(self.net.n_outputs + 1)).astype(dtype), name='mWU'+str(i)) for i in range(n_components)]
+        self.mbUs = [theano.shared(rng.randn(n_outputs**2).astype(dtype), name='mbU'+str(i)) for i in range(n_components)]
+        self.sWUs = [theano.shared(-5.0 * np.ones([self.net.n_outputs, n_outputs**2], dtype=dtype), name='sWU'+str(i)) for i in range(n_components)]
+        self.sbUs = [theano.shared(-5.0 * np.ones(n_outputs**2, dtype=dtype), name='sbU'+str(i)) for i in range(n_components)]
+        uaUs = [self.srng.normal((self.net.hs[-1].shape[0], n_outputs**2), dtype=dtype) for i in range(n_components)]
+        maUs = [tt.dot(self.net.hs[-1], mWU) + mbU for mWU, mbU in zip(self.mWUs, self.mbUs)]
+        saUs = [tt.dot(self.net.hs[-1]**2, tt.exp(2*sWU)) + tt.exp(2*sbU) for sWU, sbU in zip(self.sWUs, self.sbUs)]
+        zaUs = [tt.sqrt(saU) * uaU + maU for saU, uaU, maU in zip(saUs, uaUs, maUs)]
         zaUs_reshaped = [tt.reshape(zaU, [-1, n_outputs, n_outputs]) for zaU in zaUs]
         triu_mask = np.triu(np.ones([n_outputs, n_outputs], dtype=dtype), 1)
         diag_mask = np.eye(n_outputs, dtype=dtype)
@@ -343,7 +342,7 @@ class MDN_SVI:
 
         # log probabilities
         self.y = tt.matrix('y')
-        lprobs_comps = [-0.5 * tt.sum(tt.sum((self.y-m).dimshuffle([0, 'x', 1]) * U, axis=2)**2, axis=1) + ldetU for m, U, ldetU in izip(self.ms, self.Us, ldetUs)]
+        lprobs_comps = [-0.5 * tt.sum(tt.sum((self.y-m).dimshuffle([0, 'x', 1]) * U, axis=2)**2, axis=1) + ldetU for m, U, ldetU in zip(self.ms, self.Us, ldetUs)]
         self.lprobs = tt.log(tt.sum(tt.exp(tt.stack(lprobs_comps, axis=1) + tt.log(self.a)), axis=1)) - (0.5 * n_outputs * np.log(2*np.pi))
         self.mlprob = -tt.mean(self.lprobs)
 
@@ -384,14 +383,14 @@ class MDN_SVI:
         self.mba.set_value(np.zeros(self.n_components, dtype=dtype))
 
         # initialize means approx with the data means
-        for mWm, mbm in izip(self.mWms, self.mbms):
+        for mWm, mbm in zip(self.mWms, self.mbms):
             mWm.set_value((rng.randn(self.net.n_outputs, self.n_outputs) / np.sqrt(self.net.n_outputs + 1)).astype(dtype))
             mbm.set_value(m.astype(dtype) + 0.1 * rng.randn(self.n_outputs).astype(dtype))
 
         # initialize precisions with the data precisions
         diag_mask = np.eye(n_dim, dtype=bool)
         U[diag_mask] = np.log(U[diag_mask])
-        for mWU, mbU in izip(self.mWUs, self.mbUs):
+        for mWU, mbU in zip(self.mWUs, self.mbUs):
             mWU.set_value((rng.randn(self.net.n_outputs, self.n_outputs**2) / np.sqrt(self.net.n_outputs + 1)).astype(dtype))
             mbU.set_value(U.flatten().astype(dtype))
 
@@ -407,8 +406,8 @@ class MDN_SVI:
 
         net_uas = [tt.tile(self.srng.normal((n_units,), dtype=dtype), [n_data, 1]) for n_units in self.net.n_units[1:]]
         uaa = tt.tile(self.srng.normal((self.n_components,), dtype=dtype), [n_data, 1])
-        uams = [tt.tile(self.srng.normal((self.n_outputs,), dtype=dtype), [n_data, 1]) for _ in xrange(self.n_components)]
-        uaUs = [tt.tile(self.srng.normal((self.n_outputs**2,), dtype=dtype), [n_data, 1]) for _ in xrange(self.n_components)]
+        uams = [tt.tile(self.srng.normal((self.n_outputs,), dtype=dtype), [n_data, 1]) for _ in range(self.n_components)]
+        uaUs = [tt.tile(self.srng.normal((self.n_outputs**2,), dtype=dtype), [n_data, 1]) for _ in range(self.n_components)]
 
         # NOTE: order matters here
         uas = net_uas + [uaa] + uams + uaUs
@@ -522,7 +521,7 @@ class MDN_SVI:
             ms = []
             Us = []
 
-            for _ in xrange(n_samples):
+            for _ in range(n_samples):
 
                 # generate a mog and gather its parameters
                 ai, mis, Uis = self.eval_comps(x, rand=True)
@@ -547,7 +546,7 @@ class MDN_SVI:
 
             samples = np.empty([n_samples, self.n_outputs])
 
-            for i in xrange(n_samples):
+            for i in range(n_samples):
                 mog = self.get_mog(x, n_samples=1)
                 samples[i] = mog.gen(n_samples=1)
 
@@ -566,14 +565,14 @@ class MDN_SVI:
 
         net = MDN(n_inputs=self.n_inputs, n_hiddens=self.net.n_units[1:], act_fun=self.act_fun, n_outputs=self.n_outputs, n_components=self.n_components)
 
-        for W, b, mW, mb in izip(net.net.Ws, net.net.bs, self.net.mWs, self.net.mbs):
+        for W, b, mW, mb in zip(net.net.Ws, net.net.bs, self.net.mWs, self.net.mbs):
             W.set_value(mW.get_value())
             b.set_value(mb.get_value())
 
         net.Wa.set_value(self.mWa.get_value())
         net.ba.set_value(self.mba.get_value())
 
-        for Wm, bm, WU, bU, mWm, mbm, mWU, mbU in izip(net.Wms, net.bms, net.WUs, net.bUs, self.mWms, self.mbms, self.mWUs, self.mbUs):
+        for Wm, bm, WU, bU, mWm, mbm, mWU, mbU in zip(net.Wms, net.bms, net.WUs, net.bUs, self.mWms, self.mbms, self.mWUs, self.mbUs):
             Wm.set_value(mWm.get_value())
             bm.set_value(mbm.get_value())
             WU.set_value(mWU.get_value())
@@ -627,7 +626,7 @@ class MDN_SVI:
 
         elif layer == 'm':
 
-            for i in xrange(self.n_components):
+            for i in range(self.n_components):
 
                 fig, axs = plt.subplots(2, 2)
 
@@ -648,7 +647,7 @@ class MDN_SVI:
 
         elif layer == 'U':
 
-            for i in xrange(self.n_components):
+            for i in range(self.n_components):
 
                 fig, axs = plt.subplots(2, 2)
 
@@ -684,13 +683,13 @@ def replicate_gaussian_mdn(net, n_rep):
 
         mog_net = MDN(n_inputs=net.n_inputs, n_hiddens=net.net.n_units[1:], act_fun=net.act_fun, n_outputs=net.n_outputs, n_components=n_rep)
 
-        for mog_p, p in izip(mog_net.net.parms, net.net.parms):
+        for mog_p, p in zip(mog_net.net.parms, net.net.parms):
             mog_p.set_value(p.get_value())
 
         mog_net.Wa.set_value(np.zeros_like(mog_net.Wa.get_value()))
         mog_net.ba.set_value(np.zeros_like(mog_net.ba.get_value()))
 
-        for Wm, bm, WU, bU in izip(mog_net.Wms, mog_net.bms, mog_net.WUs, mog_net.bUs):
+        for Wm, bm, WU, bU in zip(mog_net.Wms, mog_net.bms, mog_net.WUs, mog_net.bUs):
             Wm.set_value(net.Wms[0].get_value())
             bm.set_value(net.bms[0].get_value())
             WU.set_value(net.WUs[0].get_value())
@@ -705,7 +704,7 @@ def replicate_gaussian_mdn(net, n_rep):
 
         mog_net = MDN_SVI(n_inputs=net.n_inputs, n_hiddens=net.net.n_units[1:], act_fun=net.act_fun, n_outputs=net.n_outputs, n_components=n_rep)
 
-        for mog_p, p in izip(mog_net.net.parms, net.net.parms):
+        for mog_p, p in zip(mog_net.net.parms, net.net.parms):
             mog_p.set_value(p.get_value())
 
         mog_net.mWa.set_value(np.zeros_like(mog_net.mWa.get_value()))
@@ -713,7 +712,7 @@ def replicate_gaussian_mdn(net, n_rep):
         mog_net.sWa.set_value(-5.0 * np.ones_like(mog_net.sWa.get_value()))
         mog_net.sba.set_value(-5.0 * np.ones_like(mog_net.sba.get_value()))
 
-        for mWm, mbm, mWU, mbU, sWm, sbm, sWU, sbU in izip(mog_net.mWms, mog_net.mbms, mog_net.mWUs, mog_net.mbUs, mog_net.sWms, mog_net.sbms, mog_net.sWUs, mog_net.sbUs):
+        for mWm, mbm, mWU, mbU, sWm, sbm, sWU, sbU in zip(mog_net.mWms, mog_net.mbms, mog_net.mWUs, mog_net.mbUs, mog_net.sWms, mog_net.sbms, mog_net.sWUs, mog_net.sbUs):
             mWm.set_value(net.mWms[0].get_value())
             mbm.set_value(net.mbms[0].get_value())
             mWU.set_value(net.mWUs[0].get_value())

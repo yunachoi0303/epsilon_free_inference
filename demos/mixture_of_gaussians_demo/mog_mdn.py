@@ -1,9 +1,7 @@
-from itertools import izip
-
 import util.mdn as mdn
 import util.LossFunction as lf
 import util.Trainer as Trainer
-from mog_main import *
+from .mog_main import *
 
 
 n_bootstrap_iter = 4
@@ -63,14 +61,14 @@ def train_proposal_prior_with_bootstrapping(save=True):
     regularizer = lf.regularizerSvi(net.mps, net.sps, 0.01)
     prior_proposal = None
 
-    for iter in xrange(n_bootstrap_iter):
+    for iter in range(n_bootstrap_iter):
 
         # generate new data
         ms = np.empty(n_samples)
         xs = np.empty(n_samples)
         dist = np.empty(n_samples)
 
-        for i in xrange(n_samples):
+        for i in range(n_samples):
 
             ms[i] = mu_a - 1.0
             while ms[i] < mu_a or ms[i] > mu_b:
@@ -78,7 +76,7 @@ def train_proposal_prior_with_bootstrapping(save=True):
             xs[i] = sim_likelihood(ms[i])
             dist[i] = calc_dist(xs[i], x_obs)
 
-            print 'simulation {0}, distance = {1}'.format(i, dist[i])
+            print('simulation {0}, distance = {1}'.format(i, dist[i]))
 
         # plot distance histogram
         fig = plt.figure()
@@ -168,7 +166,7 @@ def show_mdn_posterior(filename):
     posterior = net.get_mog(np.asarray([x_obs]))
     helper.plot_pdf_marginals(pdf=posterior, lims=disp_lims)
     if posterior.n_components > 1:
-        for a, x in izip(posterior.a, posterior.xs):
+        for a, x in zip(posterior.a, posterior.xs):
             helper.plot_pdf_marginals(pdf=x, lims=disp_lims)
             plt.gca().set_title('a = {0:.2}'.format(a))
 
@@ -193,7 +191,7 @@ def show_mdn_posterior(filename):
     cols = [cmap(i) for i in np.linspace(0.0, 1.0, net.n_components)]
 
     fig, ax = plt.subplots(1, 1)
-    for i in xrange(net.n_components):
+    for i in range(net.n_components):
         ax.plot(xx, a[:, i], color=cols[i], label='component {0}'.format(i))
     ax.set_ylim([-0.2, 1.2])
     ax.set_xlabel('x')
@@ -202,7 +200,7 @@ def show_mdn_posterior(filename):
 
     fig, axs = plt.subplots(1, net.n_components, sharey=True)
     axs = [axs] if net.n_components == 1 else axs
-    for i in xrange(net.n_components):
+    for i in range(net.n_components):
         axs[i].plot(xx, m[i], '-', color=cols[i], label='m')
         axs[i].plot(xx, m[i] + s[i], ':', color=cols[i], label='m +/- s')
         axs[i].plot(xx, m[i] - s[i], ':', color=cols[i])
@@ -223,7 +221,7 @@ def show_mdn_with_proposal_posterior(filename):
     # plot leant posterior
     helper.plot_pdf_marginals(pdf=posterior, lims=disp_lims)
     if posterior.n_components > 1:
-        for a, x in izip(posterior.a, posterior.xs):
+        for a, x in zip(posterior.a, posterior.xs):
             helper.plot_pdf_marginals(pdf=x, lims=disp_lims)
             plt.gca().set_title('a = {0:.2}'.format(a))
 
@@ -236,11 +234,11 @@ def show_mdn_with_bootstrapping_posterior():
     fig = plt.figure()
     all_dist = np.array([])
 
-    for iter in xrange(n_bootstrap_iter):
+    for iter in range(n_bootstrap_iter):
 
         # load approximate posterior
         _, approx_posterior, _, dist = helper.load(netsdir + 'mdn_svi_proposal_prior_{0}.pkl'.format(iter))
-        print approx_posterior.a
+        print(approx_posterior.a)
 
         # plot pdf
         helper.plot_pdf_marginals(pdf=approx_posterior, lims=disp_lims)

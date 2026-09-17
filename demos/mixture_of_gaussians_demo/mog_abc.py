@@ -1,6 +1,5 @@
 import scipy.misc
-from itertools import izip
-from mog_main import *
+from .mog_main import *
 
 
 def run_mcmc_abc(tol=1.5, step=0.2, n_samples=20000):
@@ -23,7 +22,7 @@ def run_mcmc_abc(tol=1.5, step=0.2, n_samples=20000):
     dist = [cur_dist]
     n_accepted = 0
 
-    for i in xrange(n_samples):
+    for i in range(n_samples):
 
         prop_m = cur_m + step * rng.randn()
         prop_x = sim_likelihood(prop_m)
@@ -41,7 +40,7 @@ def run_mcmc_abc(tol=1.5, step=0.2, n_samples=20000):
         xs.append(cur_x)
         dist.append(cur_dist)
 
-        print 'simulation {0}, distance = {1}, acc rate = {2:%}'.format(i, cur_dist, float(n_accepted) / (i+1))
+        print('simulation {0}, distance = {1}, acc rate = {2:%}'.format(i, cur_dist, float(n_accepted) / (i+1)))
 
     ms = np.array(ms)
     xs = np.array(xs)
@@ -75,7 +74,7 @@ def run_smc_abc():
     iter = 0
     nsims = 0
 
-    for i in xrange(n_particles):
+    for i in range(n_particles):
 
         dist = float('inf')
 
@@ -89,7 +88,7 @@ def run_smc_abc():
     all_eps.append(eps)
     all_nsims.append(nsims)
 
-    print 'iteration = {0}, eps = {1:.2}, ess = {2:.2%}'.format(iter, eps, 1.0)
+    print('iteration = {0}, eps = {1:.2}, ess = {2:.2%}'.format(iter, eps, 1.0))
 
     while eps > eps_last:
 
@@ -104,7 +103,7 @@ def run_smc_abc():
         new_ms = np.empty_like(ms)
         new_logweights = np.empty_like(logweights)
 
-        for i in xrange(n_particles):
+        for i in range(n_particles):
 
             dist = float('inf')
 
@@ -124,14 +123,14 @@ def run_smc_abc():
 
         # calculate effective sample size
         ess = 1.0 / (np.sum(weights ** 2) * n_particles)
-        print 'iteration = {0}, eps = {1:.2}, ess = {2:.2%}'.format(iter, eps, ess)
+        print('iteration = {0}, eps = {1:.2}, ess = {2:.2%}'.format(iter, eps, ess))
 
         if ess < ess_min:
 
             # resample particles
             new_ms = np.empty_like(ms)
 
-            for i in xrange(n_particles):
+            for i in range(n_particles):
                 idx = helper.discrete_sample(weights)[0]
                 new_ms[i] = ms[idx]
 
@@ -163,7 +162,7 @@ def show_rejection_abc_results(tols):
         # reject
         ms = ms_all[dist < tol]
         n_accepted = ms.shape[0]
-        print 'tolerance = {0:.2}, acceptance rate = {1:%}'.format(tol, n_accepted / float(n_sims))
+        print('tolerance = {0:.2}, acceptance rate = {1:%}'.format(tol, n_accepted / float(n_sims)))
 
         # distances histogram
         _, ax = plt.subplots(1, 1)
@@ -191,7 +190,7 @@ def show_mcmc_abc_results(tol, step):
     except IOError:
         run_mcmc_abc(tol=tol, step=step)
         ms, _, _, acc_rate, _ = helper.load(datadir + 'mcmc_abc_results_tol_{0}_step_{1}.pkl'.format(tol, step))
-    print 'acceptance rate = {:%}'.format(acc_rate)
+    print('acceptance rate = {:%}'.format(acc_rate))
 
     # plot histograms and scatter plots
     helper.plot_hist_marginals(ms, lims=disp_lims)
@@ -215,7 +214,7 @@ def show_smc_abc_results():
     # read data
     all_ms, _, all_eps, _ = helper.load(datadir + 'smc_abc_results.pkl')
 
-    for ms, eps in izip(all_ms, all_eps):
+    for ms, eps in zip(all_ms, all_eps):
 
         # plot histograms and scatter plots
         helper.plot_hist_marginals(ms, lims=disp_lims)

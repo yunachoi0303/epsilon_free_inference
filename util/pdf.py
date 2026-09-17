@@ -2,9 +2,8 @@ import numpy as np
 import numpy.random as rng
 import scipy.stats
 import scipy.misc
-from itertools import izip
 
-import helper
+from util import helper 
 
 
 class Gaussian:
@@ -231,13 +230,13 @@ class MoG:
         if ms is not None:
 
             if Ps is not None:
-                self.xs = [Gaussian(m=m, P=P) for m, P in izip(ms, Ps)]
+                self.xs = [Gaussian(m=m, P=P) for m, P in zip(ms, Ps)]
 
             elif Us is not None:
-                self.xs = [Gaussian(m=m, U=U) for m, U in izip(ms, Us)]
+                self.xs = [Gaussian(m=m, U=U) for m, U in zip(ms, Us)]
 
             elif Ss is not None:
-                self.xs = [Gaussian(m=m, S=S) for m, S in izip(ms, Ss)]
+                self.xs = [Gaussian(m=m, S=S) for m, S in zip(ms, Ss)]
 
             else:
                 raise ValueError('Precision information missing.')
@@ -256,8 +255,8 @@ class MoG:
         """Generates independent samples from mog."""
 
         ii = helper.discrete_sample(self.a, n_samples)
-        ns = [np.sum((ii == i).astype(int)) for i in xrange(self.n_components)]
-        samples = [x.gen(n) for x, n in izip(self.xs, ns)]
+        ns = [np.sum((ii == i).astype(int)) for i in range(self.n_components)]
+        samples = [x.gen(n) for x, n in zip(self.xs, ns)]
         samples = np.concatenate(samples, axis=0)
         rng.shuffle(samples)
 
@@ -286,7 +285,7 @@ class MoG:
 
         lcs = np.empty_like(self.a)
 
-        for i, (x, y) in enumerate(izip(self.xs, ys)):
+        for i, (x, y) in enumerate(zip(self.xs, ys)):
 
             lcs[i] = x.logdetP + other.logdetP - y.logdetP
             lcs[i] -= np.dot(x.m, np.dot(x.P, x.m)) + np.dot(other.m, np.dot(other.P, other.m)) - np.dot(y.m, np.dot(y.P, y.m))
@@ -319,7 +318,7 @@ class MoG:
 
         lcs = np.empty_like(self.a)
 
-        for i, (x, y) in enumerate(izip(self.xs, ys)):
+        for i, (x, y) in enumerate(zip(self.xs, ys)):
 
             lcs[i] = x.logdetP - other.logdetP - y.logdetP
             lcs[i] -= np.dot(x.m, np.dot(x.P, x.m)) - np.dot(other.m, np.dot(other.P, other.m)) - np.dot(y.m, np.dot(y.P, y.m))
@@ -349,8 +348,8 @@ class MoG:
         ms = [x.m for x in self.xs]
         m = np.dot(self.a, np.array(ms))
 
-        msqs = [x.S + np.outer(mi, mi) for x, mi in izip(self.xs, ms)]
-        S = np.sum(np.array([a * msq for a, msq in izip(self.a, msqs)]), axis=0) - np.outer(m, m)
+        msqs = [x.S + np.outer(mi, mi) for x, mi in zip(self.xs, ms)]
+        S = np.sum(np.array([a * msq for a, msq in zip(self.a, msqs)]), axis=0) - np.outer(m, m)
 
         return m, S
 
@@ -411,11 +410,11 @@ def fit_mog(x, n_components, w=None, tol=1.0e-9, maxiter=float('inf'), verbose=F
     # initialize
     a = np.ones(n_components) / n_components
     ms = rng.randn(n_components, n_dim)
-    Ss = [np.eye(n_dim) for _ in xrange(n_components)]
+    Ss = [np.eye(n_dim) for _ in range(n_components)]
     iter = 0
 
     # calculate log p(x,z), log p(x) and total log likelihood
-    logPxz = np.array([scipy.stats.multivariate_normal.logpdf(x, ms[k], Ss[k]) for k in xrange(n_components)])
+    logPxz = np.array([scipy.stats.multivariate_normal.logpdf(x, ms[k], Ss[k]) for k in range(n_components)])
     logPxz += np.log(a)[:, np.newaxis]
     logPx = scipy.misc.logsumexp(logPxz, axis=0)
     loglik_prev = np.mean(logPx) if w is None else np.dot(w, logPx)
@@ -430,19 +429,19 @@ def fit_mog(x, n_components, w=None, tol=1.0e-9, maxiter=float('inf'), verbose=F
             Nk = np.sum(z, axis=1)
             a = Nk / n_data
             ms = np.dot(z, x) / Nk[:, np.newaxis]
-            for k in xrange(n_components):
+            for k in range(n_components):
                 xm = x - ms[k]
                 Ss[k] = np.dot(xm.T * z[k], xm) / Nk[k]
         else:
             zw = z * w
             a = np.sum(zw, axis=1)
             ms = np.dot(zw, x) / a[:, np.newaxis]
-            for k in xrange(n_components):
+            for k in range(n_components):
                 xm = x - ms[k]
                 Ss[k] = np.dot(xm.T * zw[k], xm) / a[k]
 
         # calculate log p(x,z), log p(x) and total log likelihood
-        logPxz = np.array([scipy.stats.multivariate_normal.logpdf(x, ms[k], Ss[k]) for k in xrange(n_components)])
+        logPxz = np.array([scipy.stats.multivariate_normal.logpdf(x, ms[k], Ss[k]) for k in range(n_components)])
         logPxz += np.log(a)[:, np.newaxis]
         logPx = scipy.misc.logsumexp(logPxz, axis=0)
         loglik = np.mean(logPx) if w is None else np.dot(w, logPx)
@@ -451,7 +450,7 @@ def fit_mog(x, n_components, w=None, tol=1.0e-9, maxiter=float('inf'), verbose=F
         iter += 1
         diff = loglik - loglik_prev
         assert diff >= 0.0, 'Log likelihood decreased! There is a bug somewhere!'
-        if verbose: print 'Iteration = {0}, log likelihood = {1}, diff = {2}'.format(iter, loglik, diff)
+        if verbose: print('Iteration = {0}, log likelihood = {1}, diff = {2}'.format(iter, loglik, diff))
         if diff < tol or iter > maxiter: break
         loglik_prev = loglik
 
