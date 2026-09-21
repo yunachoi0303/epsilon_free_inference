@@ -1,8 +1,7 @@
 import matplotlib
-from mog_main import *
-from mog_abc import run_mcmc_abc
-from mog_mdn import n_bootstrap_iter
-from itertools import izip
+from .mog_main import *
+from .mog_abc import run_mcmc_abc
+from .mog_mdn import n_bootstrap_iter
 
 
 def gather_results_for_rejection_abc():
@@ -47,7 +46,7 @@ def gather_results_for_mcmc_abc():
     # true posterior
     true_posterior = calc_posterior()
 
-    for e, step in izip(eps, steps):
+    for e, step in zip(eps, steps):
 
         # read data
         try:
@@ -82,7 +81,7 @@ def gather_results_for_smc_abc():
     # true posterior
     true_posterior = calc_posterior()
 
-    for ms, logweights in izip(ms_all, logweights_all):
+    for ms, logweights in zip(ms_all, logweights_all):
 
         # fit mog to samples and measure kl
         weights = np.exp(logweights)

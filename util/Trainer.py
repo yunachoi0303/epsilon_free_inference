@@ -1,13 +1,13 @@
-import theano
-import theano.tensor as tt
+import pytensor
+import pytensor.tensor as pt
 import matplotlib.pyplot as plt
 
-import StepStrategy as ss
-import DataStream as ds
+from . import StepStrategy as ss
+from . import DataStream as ds
 
 
 isposint = lambda t: isinstance(t, int) and t > 0
-dtype = theano.config.floatX
+dtype = pytensor.config.floatX
 
 
 class Trainer:
@@ -17,11 +17,11 @@ class Trainer:
         Constructs and configures the trainer.
         :param model: the model to be trained
         :param trn_data: train inputs and (possibly) train targets
-        :param trn_loss: theano variable representing the train loss to minimize
-        :param trn_target: theano variable representing the train target
+        :param trn_loss: pytensor variable representing the train loss to minimize
+        :param trn_target: pytensor variable representing the train target
         :param val_data: validation inputs and (possibly) validation targets
-        :param val_loss: theano variable representing the validation loss
-        :param val_target: theano variable representing the validation target
+        :param val_loss: pytensor variable representing the validation loss
+        :param val_target: pytensor variable representing the validation target
         :param step: step size strategy object
         :return: None
         """
@@ -34,13 +34,13 @@ class Trainer:
         n_trn_data_list = set([x.shape[0] for x in trn_data])
         assert len(n_trn_data_list) == 1, 'Number of train data is not consistent.'
         self.n_trn_data = list(n_trn_data_list)[0]
-        trn_data = [theano.shared(x.astype(dtype)) for x in trn_data]
+        trn_data = [pytensor.shared(x.astype(dtype)) for x in trn_data]
 
-        # compile theano function for a single training update
-        grads = tt.grad(trn_loss, model.parms)
-        idx = tt.ivector('idx')
+        # compile pytensor function for a single training update
+        grads = pt.grad(trn_loss, model.parms)
+        idx = pt.ivector('idx')
         trn_inputs = [model.input] if trn_target is None else [model.input, trn_target]
-        self.make_update = theano.function(
+        self.make_update = pytensor.function(
             inputs=[idx],
             outputs=trn_loss,
             givens=zip(trn_inputs, [x[idx] for x in trn_data]),
@@ -56,11 +56,11 @@ class Trainer:
             n_val_data_list = set([x.shape[0] for x in val_data])
             assert len(n_val_data_list) == 1, 'Number of validation data is not consistent.'
             self.n_val_data = list(n_val_data_list)[0]
-            val_data = [theano.shared(x.astype(dtype)) for x in val_data]
+            val_data = [pytensor.shared(x.astype(dtype)) for x in val_data]
 
-            # compile theano function for validation
+            # compile pytensor function for validation
             val_inputs = [model.input] if val_target is None else [model.input, val_target]
-            self.validate = theano.function(
+            self.validate = pytensor.function(
                 inputs=[],
                 outputs=val_loss,
                 givens=zip(val_inputs, val_data)
@@ -125,9 +125,9 @@ class Trainer:
                 # print info
                 if verbose:
                     if self.do_validation:
-                        print 'Iteration = {0}, train loss = {1}, validation loss = {2}'.format(iter, trn_loss, val_loss)
+                        print('Iteration = {0}, train loss = {1}, validation loss = {2}'.format(iter, trn_loss, val_loss))
                     else:
-                        print 'Iteration = {0}, train loss = {1}'.format(iter, trn_loss)
+                        print('Iteration = {0}, train loss = {1}'.format(iter, trn_loss))
 
             # check for convergence
             if abs(diff) < tol or iter >= maxiter:

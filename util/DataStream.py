@@ -1,6 +1,6 @@
 import numpy as np
 import random
-import theano
+import pytensor
 
 
 class DataStream:
@@ -30,7 +30,7 @@ class DataSubSampler(DataStream):
 
         # set remaining class properties
         self.index_stream = IndexSubSampler(N)
-        self.xs = [ theano.shared(x.astype(theano.config.floatX), name='data'+str(i)) for i, x in enumerate(xs) ]
+        self.xs = [pytensor.shared(x.astype(pytensor.config.floatX), name='data'+str(i)) for i, x in enumerate(xs) ]
 
     def gen(self, N):
         """Generates a new data batch of size N from the data set."""
@@ -63,7 +63,7 @@ class IndexSubSampler(DataStream):
         new_i = j % self.num_idx
         n = []
 
-        for t in xrange(times):
+        for t in range(times):
             n += self.nn[self.i:]
             random.shuffle(self.nn)
             self.i = 0

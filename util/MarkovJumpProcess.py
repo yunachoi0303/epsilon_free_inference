@@ -1,7 +1,7 @@
 from __future__ import division
 import numpy as np
 import numpy.random as rng
-import helper
+from . import helper
 
 
 class SimTooLongException(Exception):
@@ -35,7 +35,7 @@ class MarkovJumpProcess:
         times = [self.time]
         states = [self.state.copy()]
 
-        for _ in xrange(num_steps):
+        for _ in range(num_steps):
 
             rates = self.params * self._calc_propensities()
             total_rate = rates.sum()
@@ -62,7 +62,7 @@ class MarkovJumpProcess:
         cur_time = self.time
         n_steps = 0
 
-        for i in xrange(num_rec):
+        for i in range(num_rec):
 
             while cur_time > self.time:
 

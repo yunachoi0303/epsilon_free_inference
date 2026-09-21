@@ -2,15 +2,15 @@ from __future__ import division
 
 import numpy as np
 import numpy.random as rng
-import theano
-import theano.tensor as tt
-from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
+import pytensor
+import pytensor.tensor as pt
+from pytensor.tensor.random.utils import RandomStream
 import matplotlib.pyplot as plt
 
-import helper
+from . import helper
 
 
-dtype = theano.config.floatX
+dtype = pytensor.config.floatX
 isposint = lambda t: isinstance(t, int) and t > 0
 
 
@@ -31,7 +31,7 @@ class NeuralNet:
 
         self.Ws = []
         self.bs = []
-        self.hs = [tt.matrix('x')]
+        self.hs = [pt.matrix('x')]
         self.parms = self.Ws + self.bs
         self.input = self.hs[0]
         self.output = self.hs[-1]
@@ -54,21 +54,21 @@ class NeuralNet:
                 clipvalue = 15.0
             else:
                 clipvalue = 19.0
-            actfun = lambda t: tt.nnet.sigmoid(tt.clip(t, -clipvalue, clipvalue))
+            actfun = lambda t: pt.nnet.sigmoid(pt.clip(t, -clipvalue, clipvalue))
         elif type == 'tanh':
             if dtype == 'float32':
                 clipvalue = 9.0
             else:
                 clipvalue = 19.0
-            actfun = lambda t: tt.tanh(tt.clip(t, -clipvalue, clipvalue))
+            actfun = lambda t: pt.tanh(pt.clip(t, -clipvalue, clipvalue))
         elif type == 'linear':
             actfun = lambda t: t
         elif type == 'relu':
-            actfun = tt.nnet.relu
+            actfun = pt.nnet.relu
         elif type == 'softplus':
-            actfun = tt.nnet.softplus
+            actfun = pt.nnet.softplus
         elif type == 'softmax':
-            actfun = tt.nnet.softmax
+            actfun = pt.nnet.softmax
         else:
             raise ValueError(type + ' is not a supported activation function type.')
 
@@ -78,9 +78,9 @@ class NeuralNet:
         self.n_layers += 1
         self.n_params += (n_prev_units + 1) * n_units
 
-        W = theano.shared((rng.randn(n_prev_units, n_units) / np.sqrt(n_prev_units + 1)).astype(dtype), name='W' + str(self.n_layers))
-        b = theano.shared(np.zeros(n_units, dtype=dtype), name='b' + str(self.n_layers))
-        h = actfun(tt.dot(self.hs[-1], W) + b)
+        W = pytensor.shared((rng.randn(n_prev_units, n_units) / np.sqrt(n_prev_units + 1)).astype(dtype), name='W' + str(self.n_layers))
+        b = pytensor.shared(np.zeros(n_units, dtype=dtype), name='b' + str(self.n_layers))
+        h = actfun(pt.dot(self.hs[-1], W) + b)
         h.name = 'h' + str(self.n_layers)
 
         self.Ws.append(W)
@@ -115,9 +115,9 @@ class NeuralNet:
     def eval(self, x):
         """Evaluate net at locations in x."""
 
-        # compile theano computation graph, if haven't already done so
+        # compile pytensor computation graph, if haven't already done so
         if self.eval_f == None:
-            self.eval_f = theano.function(
+            self.eval_f = pytensor.function(
                 inputs=[self.hs[0]],
                 outputs=self.hs[-1]
             )
@@ -128,12 +128,12 @@ class NeuralNet:
     def printInfo(self):
         """Prints some useful info about the net."""
 
-        print 'Number of inputs  =', self.n_inputs
-        print 'Number of outputs =', self.n_outputs
-        print 'Number of units   =', self.n_units
-        print 'Number of layers  =', self.n_layers
-        print 'Number of params  =', self.n_params
-        print 'Data type =', dtype
+        print(f'Number of inputs  = {self.n_inputs}')
+        print(f'Number of outputs = {self.n_outputs}')
+        print(f'Number of units   = {self.n_units}')
+        print(f'Number of layers  = {self.n_layers}')
+        print(f'Number of params  = {self.n_params}')
+        print(f'Data type = {dtype}')
 
 
     def visualize_weights(self, layer, imsize, layout):
@@ -158,9 +158,9 @@ class NeuralNet:
         """
 
         if layers is None:
-            layers = xrange(self.n_layers)
+            layers = range(self.n_layers)
 
-        forwprop = theano.function(
+        forwprop = pytensor.function(
             inputs=[self.hs[0]],
             outputs=self.hs[1:]
         )
@@ -186,14 +186,14 @@ class NeuralNet:
         """
 
         if layers is None:
-            layers = xrange(self.n_layers)
+            layers = range(self.n_layers)
 
         for l in layers:
 
             fig, (ax1, ax2) = plt.subplots(1, 2)
 
             nbins = int(np.sqrt(self.Ws[l].get_value().size))
-            ax1.hist(self.Ws[l].get_value().flatten(), nbins, normed=True)
+            ax1.hist(self.Ws[l].get_value().flapten(), nbins, normed=True)
             ax1.set_title('weights, layer ' + str(l))
 
             nbins = int(np.sqrt(self.bs[l].get_value().size))
@@ -225,7 +225,7 @@ class NeuralNetSvi:
         self.uas = []
         self.mas = []
         self.zas = []
-        self.hs = [tt.matrix('x')]
+        self.hs = [pt.matrix('x')]
 
         self.mps = self.mWs + self.mbs
         self.sps = self.sWs + self.sbs
@@ -233,7 +233,7 @@ class NeuralNetSvi:
         self.input = self.hs[0]
         self.output = self.hs[-1]
 
-        self.srng = RandomStreams()
+        self.srng = RandomStream()
 
         self.eval_f = None
         self.eval_f_rand = None
@@ -254,21 +254,21 @@ class NeuralNetSvi:
                 clipvalue = 15.0
             else:
                 clipvalue = 19.0
-            actfun = lambda t: tt.nnet.sigmoid(tt.clip(t, -clipvalue, clipvalue))
+            actfun = lambda t: pt.nnet.sigmoid(pt.clip(t, -clipvalue, clipvalue))
         elif type == 'tanh':
             if dtype == 'float32':
                 clipvalue = 9.0
             else:
                 clipvalue = 19.0
-            actfun = lambda t: tt.tanh(tt.clip(t, -clipvalue, clipvalue))
+            actfun = lambda t: pt.tanh(pt.clip(t, -clipvalue, clipvalue))
         elif type == 'linear':
             actfun = lambda t: t
         elif type == 'relu':
-            actfun = tt.nnet.relu
+            actfun = pt.nnet.relu
         elif type == 'softplus':
-            actfun = tt.nnet.softplus
+            actfun = pt.nnet.softplus
         elif type == 'softmax':
-            actfun = tt.nnet.softmax
+            actfun = pt.nnet.softmax
         else:
             raise ValueError(type + ' is not a supported activation function type.')
 
@@ -278,14 +278,14 @@ class NeuralNetSvi:
         self.n_layers += 1
         self.n_params += 2 * (n_prev_units + 1) * n_units
 
-        mW = theano.shared((rng.randn(n_prev_units, n_units) / np.sqrt(n_prev_units + 1)).astype(dtype), name='mW' + str(self.n_layers))
-        mb = theano.shared(np.zeros(n_units, dtype=dtype), name='mb' + str(self.n_layers))
-        sW = theano.shared(-5.0 * np.ones([n_prev_units, n_units], dtype=dtype), name='sW' + str(self.n_layers))
-        sb = theano.shared(-5.0 * np.ones(n_units, dtype=dtype), name='sb' + str(self.n_layers))
+        mW = pytensor.shared((rng.randn(n_prev_units, n_units) / np.sqrt(n_prev_units + 1)).astype(dtype), name='mW' + str(self.n_layers))
+        mb = pytensor.shared(np.zeros(n_units, dtype=dtype), name='mb' + str(self.n_layers))
+        sW = pytensor.shared(-5.0 * np.ones([n_prev_units, n_units], dtype=dtype), name='sW' + str(self.n_layers))
+        sb = pytensor.shared(-5.0 * np.ones(n_units, dtype=dtype), name='sb' + str(self.n_layers))
         ua = self.srng.normal((self.hs[-1].shape[0], n_units), dtype=dtype)
-        ma = tt.dot(self.hs[-1], mW) + mb
-        sa = tt.dot(self.hs[-1]**2, tt.exp(2*sW)) + tt.exp(2*sb)
-        za = tt.sqrt(sa) * ua + ma
+        ma = pt.dot(self.hs[-1], mW) + mb
+        sa = pt.dot(self.hs[-1]**2, pt.exp(2*sW)) + pt.exp(2*sb)
+        za = pt.sqrt(sa) * ua + ma
         h = actfun(za)
         h.name = 'h' + str(self.n_layers)
 
@@ -341,13 +341,13 @@ class NeuralNetSvi:
 
         if rand:
 
-            # compile theano computation graph, if haven't already done so
+            # compile pytensor computation graph, if haven't already done so
             if self.eval_f_rand == None:
 
-                n_data = tt.iscalar('n_data')
-                uas = [tt.tile(self.srng.normal((n_units,), dtype=dtype), [n_data, 1]) for n_units in self.n_units[1:]]
+                n_data = pt.iscalar('n_data')
+                uas = [pt.tile(self.srng.normal((n_units,), dtype=dtype), [n_data, 1]) for n_units in self.n_units[1:]]
 
-                self.eval_f_rand = theano.function(
+                self.eval_f_rand = pytensor.function(
                     inputs=[self.hs[0], n_data],
                     outputs=self.hs[-1],
                     givens=zip(self.uas, uas)
@@ -357,9 +357,9 @@ class NeuralNetSvi:
 
         else:
 
-            # compile theano computation graph, if haven't already done so
+            # compile pytensor computation graph, if haven't already done so
             if self.eval_f == None:
-                self.eval_f = theano.function(
+                self.eval_f = pytensor.function(
                     inputs=[self.hs[0]],
                     outputs=self.hs[-1],
                     givens=zip(self.zas, self.mas)
@@ -371,12 +371,12 @@ class NeuralNetSvi:
     def printInfo(self):
         """Prints some useful info about the net."""
 
-        print 'Number of inputs  =', self.n_inputs
-        print 'Number of outputs =', self.n_outputs
-        print 'Number of units   =', self.n_units
-        print 'Number of layers  =', self.n_layers
-        print 'Number of params  =', self.n_params
-        print 'Data type =', dtype
+        print(f'Number of inputs  = {self.n_inputs}')
+        print(f'Number of outputs = {self.n_outputs}')
+        print(f'Number of units   = {self.n_units}')
+        print(f'Number of layers  = {self.n_layers}')
+        print(f'Number of params  = {self.n_params}')
+        print(f'Data type = {dtype}')
 
 
     def visualize_weights(self, layer, imsize, layout):
@@ -401,9 +401,9 @@ class NeuralNetSvi:
         """
 
         if layers is None:
-            layers = xrange(self.n_layers)
+            layers = range(self.n_layers)
 
-        forwprop = theano.function(
+        forwprop = pytensor.function(
             inputs=[self.hs[0]],
             outputs=self.hs[1:]
         )
@@ -429,16 +429,16 @@ class NeuralNetSvi:
         """
 
         if layers is None:
-            layers = xrange(self.n_layers)
+            layers = range(self.n_layers)
 
         for l in layers:
 
             fig, axs = plt.subplots(2, 2)
 
             nbins = int(np.sqrt(self.mWs[l].get_value().size))
-            axs[0, 0].hist(self.mWs[l].get_value().flatten(), nbins, normed=True)
+            axs[0, 0].hist(self.mWs[l].get_value().flapten(), nbins, normed=True)
             axs[0, 0].set_title('weight means, layer ' + str(l))
-            axs[1, 0].hist(self.sWs[l].get_value().flatten(), nbins, normed=True)
+            axs[1, 0].hist(self.sWs[l].get_value().flapten(), nbins, normed=True)
             axs[1, 0].set_title('weight log stds, layer ' + str(l))
 
             nbins = int(np.sqrt(self.mbs[l].get_value().size))

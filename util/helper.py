@@ -207,7 +207,7 @@ def plot_pdf_marginals(pdf, lims, gt=None, levels=(0.68, 0.95)):
                     ax[i, j].set_ylim(lims[j])
                     if gt is not None: ax[i, j].plot(gt[i], gt[j], 'r.', ms=8)
 
-    plt.show(block=False)
+    plt.show()
 
     return fig, ax
 
@@ -251,7 +251,7 @@ def plot_hist_marginals(data, lims=None, gt=None):
                         ax[i, j].set_ylim(lims[j])
                     if gt is not None: ax[i, j].plot(gt[i], gt[j], 'r.', ms=8)
 
-    plt.show(block=False)
+    plt.show()
 
     return fig, ax
 

@@ -2,16 +2,16 @@ from __future__ import division
 
 import numpy as np
 import numpy.random as rng
-import theano
-import theano.tensor as tt
+import pytensor
+import pytensor.tensor as pt
 import matplotlib.pyplot as plt
 
-import NeuralNet as nn
-import pdf
-import helper
+from . import NeuralNet as nn
+from . import pdf 
+from . import helper 
 
 
-dtype = theano.config.floatX
+dtype = pytensor.config.floatX
 isposint = lambda t: isinstance(t, int) and t > 0
 
 
@@ -45,36 +45,36 @@ class MDN:
         self.input = self.net.hs[0]
 
         # mixing coefficients
-        self.Wa = theano.shared((rng.randn(self.net.n_outputs, n_components) / np.sqrt(self.net.n_outputs + 1)).astype(dtype), name='Wa')
-        self.ba = theano.shared(rng.randn(n_components).astype(dtype), name='ba')
-        self.a = tt.nnet.softmax(tt.dot(self.net.hs[-1], self.Wa) + self.ba)
+        self.Wa = pytensor.shared((rng.randn(self.net.n_outputs, n_components) / np.sqrt(self.net.n_outputs + 1)).astype(dtype), name='Wa')
+        self.ba = pytensor.shared(rng.randn(n_components).astype(dtype), name='ba')
+        self.a = pt.nnet.softmax(pt.dot(self.net.hs[-1], self.Wa) + self.ba)
 
         # mixture means
         # the mean of each component is calculated separately. consider vectorizing this
-        self.Wms = [theano.shared((rng.randn(self.net.n_outputs, n_outputs) / np.sqrt(self.net.n_outputs + 1)).astype(dtype), name='Wm'+str(i)) for i in range(n_components)]
-        self.bms = [theano.shared(rng.randn(n_outputs).astype(dtype), name='bm'+str(i)) for i in range(n_components)]
-        self.ms = [tt.dot(self.net.hs[-1], Wm) + bm for Wm, bm in zip(self.Wms, self.bms)]
+        self.Wms = [pytensor.shared((rng.randn(self.net.n_outputs, n_outputs) / np.sqrt(self.net.n_outputs + 1)).astype(dtype), name='Wm'+str(i)) for i in range(n_components)]
+        self.bms = [pytensor.shared(rng.randn(n_outputs).astype(dtype), name='bm'+str(i)) for i in range(n_components)]
+        self.ms = [pt.dot(self.net.hs[-1], Wm) + bm for Wm, bm in zip(self.Wms, self.bms)]
 
         # mixture precisions
         # note that U here is an upper triangular matrix such that U'*U is the precision
-        self.WUs = [theano.shared((rng.randn(self.net.n_outputs, n_outputs**2) / np.sqrt(self.net.n_outputs + 1)).astype(dtype), name='WU'+str(i)) for i in range(n_components)]
-        self.bUs = [theano.shared(rng.randn(n_outputs**2).astype(dtype), name='bU'+str(i)) for i in range(n_components)]
-        aUs = [tt.reshape(tt.dot(self.net.hs[-1], WU) + bU, [-1, n_outputs, n_outputs]) for WU, bU in zip(self.WUs, self.bUs)]
+        self.WUs = [pytensor.shared((rng.randn(self.net.n_outputs, n_outputs**2) / np.sqrt(self.net.n_outputs + 1)).astype(dtype), name='WU'+str(i)) for i in range(n_components)]
+        self.bUs = [pytensor.shared(rng.randn(n_outputs**2).astype(dtype), name='bU'+str(i)) for i in range(n_components)]
+        aUs = [pt.reshape(pt.dot(self.net.hs[-1], WU) + bU, [-1, n_outputs, n_outputs]) for WU, bU in zip(self.WUs, self.bUs)]
         triu_mask = np.triu(np.ones([n_outputs, n_outputs], dtype=dtype), 1)
         diag_mask = np.eye(n_outputs, dtype=dtype)
-        self.Us = [triu_mask * aU + diag_mask * tt.exp(diag_mask * aU) for aU in aUs]
-        ldetUs = [tt.sum(tt.sum(diag_mask * aU, axis=2), axis=1) for aU in aUs]
+        self.Us = [triu_mask * aU + diag_mask * pt.exp(diag_mask * aU) for aU in aUs]
+        ldetUs = [pt.sum(pt.sum(diag_mask * aU, axis=2), axis=1) for aU in aUs]
 
         # log probabilities
-        self.y = tt.matrix('y')
-        lprobs_comps = [-0.5 * tt.sum(tt.sum((self.y-m).dimshuffle([0, 'x', 1]) * U, axis=2)**2, axis=1) + ldetU for m, U, ldetU in zip(self.ms, self.Us, ldetUs)]
-        self.lprobs = tt.log(tt.sum(tt.exp(tt.stack(lprobs_comps, axis=1) + tt.log(self.a)), axis=1)) - (0.5 * n_outputs * np.log(2*np.pi))
-        self.mlprob = -tt.mean(self.lprobs)
+        self.y = pt.matrix('y')
+        lprobs_comps = [-0.5 * pt.sum(pt.sum((self.y-m).dimshuffle([0, 'x', 1]) * U, axis=2)**2, axis=1) + ldetU for m, U, ldetU in zip(self.ms, self.Us, ldetUs)]
+        self.lprobs = pt.log(pt.sum(pt.exp(pt.stack(lprobs_comps, axis=1) + pt.log(self.a)), axis=1)) - (0.5 * n_outputs * np.log(2*np.pi))
+        self.mlprob = -pt.mean(self.lprobs)
 
         # all parameters in one container
         self.parms = self.net.parms + [self.Wa, self.ba] + self.Wms + self.bms + self.WUs + self.bUs
 
-        # theano evaluation functions, will be compiled when first needed
+        # pytensor evaluation functions, will be compiled when first needed
         self.eval_comps_f = None
         self.eval_lprobs_f = None
 
@@ -110,7 +110,7 @@ class MDN:
         U[diag_mask] = np.log(U[diag_mask])
         for WU, bU in zip(self.WUs, self.bUs):
             WU.set_value((rng.randn(self.net.n_outputs, self.n_outputs**2) / np.sqrt(self.net.n_outputs + 1)).astype(dtype))
-            bU.set_value(U.flatten().astype(dtype))
+            bU.set_value(U.flapten().astype(dtype))
 
 
     def eval_comps(self, x):
@@ -120,9 +120,9 @@ class MDN:
         :return: mixing coefficients, means and scale matrices
         """
 
-        # compile theano function, if haven't already done so
+        # compile pytensor function, if haven't already done so
         if self.eval_comps_f == None:
-            self.eval_comps_f = theano.function(
+            self.eval_comps_f = pytensor.function(
                 inputs=[self.input],
                 outputs=[self.a] + self.ms + self.Us
             )
@@ -139,9 +139,9 @@ class MDN:
         :return: log probabilities: log p(y|x)
         """
 
-        # compile theano function, if haven't already done so
+        # compile pytensor function, if haven't already done so
         if self.eval_lprobs_f == None:
-            self.eval_lprobs_f = theano.function(
+            self.eval_lprobs_f = pytensor.function(
                 inputs=[self.input, self.y],
                 outputs=self.lprobs
             )
@@ -213,9 +213,9 @@ class MDN:
 
         self.net.visualize_activations(x)
 
-        forwprop = theano.function(
+        forwprop = pytensor.function(
             inputs=[self.input],
-            outputs=[self.a, tt.concatenate(self.ms, axis=1) + tt.concatenate([tt.reshape(U, [U.shape[0], -1]) for U in self.Us], axis=1)]
+            outputs=[self.a, pt.concatenate(self.ms, axis=1) + pt.concatenate([pt.reshape(U, [U.shape[0], -1]) for U in self.Us], axis=1)]
         )
         activations = forwprop(x.astype(dtype))
 
@@ -239,12 +239,12 @@ class MDN:
 
         self.net.param_hist()
 
-        all_Wa = self.Wa.get_value().flatten()
-        all_ba = self.ba.get_value().flatten()
-        all_Wm = np.concatenate([Wm.get_value().flatten() for Wm in self.Wms])
-        all_bm = np.concatenate([bm.get_value().flatten() for bm in self.bms])
-        all_WU = np.concatenate([WU.get_value().flatten() for WU in self.WUs])
-        all_bU = np.concatenate([bU.get_value().flatten() for bU in self.bUs])
+        all_Wa = self.Wa.get_value().flapten()
+        all_ba = self.ba.get_value().flapten()
+        all_Wm = np.concatenate([Wm.get_value().flapten() for Wm in self.Wms])
+        all_bm = np.concatenate([bm.get_value().flapten() for bm in self.bms])
+        all_WU = np.concatenate([WU.get_value().flapten() for WU in self.WUs])
+        all_bU = np.concatenate([bU.get_value().flapten() for bU in self.bUs])
 
         for W, b, title in zip([all_Wa, all_Wm, all_WU], [all_ba, all_bm, all_bU], ['mixing coefficients', 'means', 'scale matrices']):
 
@@ -293,58 +293,58 @@ class MDN_SVI:
         self.input = self.net.hs[0]
         self.srng = self.net.srng
 
-        # the naming scheme of the theano variables from now on might look a bit cryptic but it actually makes sense
-        # each variable name has 3 or 4 letters, with the following meanings:
-        # 1st letter: m=mean, s=variance, u=noise, z=random. note that s can also be the log std if convenient
-        # 2nd letter: W=weights, b=biases or a=activations
-        # 3rd letter: a=mixing coefficients, m=means, U=precisions
-        # 4th letter: s if it's a list of variables, nothing otherwise
+        # the naming scheme of the pytensor variables from now on might look a bit cryptic but it actually makes sense
+        # each variable name has 3 or 4 lepters, with the following meanings:
+        # 1st lepter: m=mean, s=variance, u=noise, z=random. note that s can also be the log std if convenient
+        # 2nd lepter: W=weights, b=biases or a=activations
+        # 3rd lepter: a=mixing coefficients, m=means, U=precisions
+        # 4th lepter: s if it's a list of variables, nothing otherwise
         # in general, capital means matrix, lowercase means vector(s)
 
         # mixing coefficients
-        self.mWa = theano.shared((rng.randn(self.net.n_outputs, n_components) / np.sqrt(self.net.n_outputs + 1)).astype(dtype), name='mWa')
-        self.mba = theano.shared(rng.randn(n_components).astype(dtype), name='mba')
-        self.sWa = theano.shared(-5.0 * np.ones([self.net.n_outputs, n_components], dtype=dtype), name='sWa')
-        self.sba = theano.shared(-5.0 * np.ones(n_components, dtype=dtype), name='sba')
+        self.mWa = pytensor.shared((rng.randn(self.net.n_outputs, n_components) / np.sqrt(self.net.n_outputs + 1)).astype(dtype), name='mWa')
+        self.mba = pytensor.shared(rng.randn(n_components).astype(dtype), name='mba')
+        self.sWa = pytensor.shared(-5.0 * np.ones([self.net.n_outputs, n_components], dtype=dtype), name='sWa')
+        self.sba = pytensor.shared(-5.0 * np.ones(n_components, dtype=dtype), name='sba')
         uaa = self.srng.normal((self.net.hs[-1].shape[0], n_components), dtype=dtype)
-        maa = tt.dot(self.net.hs[-1], self.mWa) + self.mba
-        saa = tt.dot(self.net.hs[-1]**2, tt.exp(2*self.sWa)) + tt.exp(2*self.sba)
-        zaa = tt.sqrt(saa) * uaa + maa
-        self.a = tt.nnet.softmax(zaa)
+        maa = pt.dot(self.net.hs[-1], self.mWa) + self.mba
+        saa = pt.dot(self.net.hs[-1]**2, pt.exp(2*self.sWa)) + pt.exp(2*self.sba)
+        zaa = pt.sqrt(saa) * uaa + maa
+        self.a = pt.nnet.softmax(zaa)
 
         # mixture means
         # the mean of each component is calculated separately. consider vectorizing this
-        self.mWms = [theano.shared((rng.randn(self.net.n_outputs, n_outputs) / np.sqrt(self.net.n_outputs + 1)).astype(dtype), name='mWm'+str(i)) for i in range(n_components)]
-        self.mbms = [theano.shared(rng.randn(n_outputs).astype(dtype), name='mbm'+str(i)) for i in range(n_components)]
-        self.sWms = [theano.shared(-5.0 * np.ones([self.net.n_outputs, n_outputs], dtype=dtype), name='sWm'+str(i)) for i in range(n_components)]
-        self.sbms = [theano.shared(-5.0 * np.ones(n_outputs, dtype=dtype), name='sbm'+str(i)) for i in range(n_components)]
+        self.mWms = [pytensor.shared((rng.randn(self.net.n_outputs, n_outputs) / np.sqrt(self.net.n_outputs + 1)).astype(dtype), name='mWm'+str(i)) for i in range(n_components)]
+        self.mbms = [pytensor.shared(rng.randn(n_outputs).astype(dtype), name='mbm'+str(i)) for i in range(n_components)]
+        self.sWms = [pytensor.shared(-5.0 * np.ones([self.net.n_outputs, n_outputs], dtype=dtype), name='sWm'+str(i)) for i in range(n_components)]
+        self.sbms = [pytensor.shared(-5.0 * np.ones(n_outputs, dtype=dtype), name='sbm'+str(i)) for i in range(n_components)]
         uams = [self.srng.normal((self.net.hs[-1].shape[0], n_outputs), dtype=dtype) for i in range(n_components)]
-        mams = [tt.dot(self.net.hs[-1], mWm) + mbm for mWm, mbm in zip(self.mWms, self.mbms)]
-        sams = [tt.dot(self.net.hs[-1]**2, tt.exp(2*sWm)) + tt.exp(2*sbm) for sWm, sbm in zip(self.sWms, self.sbms)]
-        zams = [tt.sqrt(sam) * uam + mam for sam, uam, mam in zip(sams, uams, mams)]
+        mams = [pt.dot(self.net.hs[-1], mWm) + mbm for mWm, mbm in zip(self.mWms, self.mbms)]
+        sams = [pt.dot(self.net.hs[-1]**2, pt.exp(2*sWm)) + pt.exp(2*sbm) for sWm, sbm in zip(self.sWms, self.sbms)]
+        zams = [pt.sqrt(sam) * uam + mam for sam, uam, mam in zip(sams, uams, mams)]
         self.ms = zams
 
         # mixture precisions
         # note that U here is an upper triangular matrix such that U'*U is the precision
-        self.mWUs = [theano.shared((rng.randn(self.net.n_outputs, n_outputs**2) / np.sqrt(self.net.n_outputs + 1)).astype(dtype), name='mWU'+str(i)) for i in range(n_components)]
-        self.mbUs = [theano.shared(rng.randn(n_outputs**2).astype(dtype), name='mbU'+str(i)) for i in range(n_components)]
-        self.sWUs = [theano.shared(-5.0 * np.ones([self.net.n_outputs, n_outputs**2], dtype=dtype), name='sWU'+str(i)) for i in range(n_components)]
-        self.sbUs = [theano.shared(-5.0 * np.ones(n_outputs**2, dtype=dtype), name='sbU'+str(i)) for i in range(n_components)]
+        self.mWUs = [pytensor.shared((rng.randn(self.net.n_outputs, n_outputs**2) / np.sqrt(self.net.n_outputs + 1)).astype(dtype), name='mWU'+str(i)) for i in range(n_components)]
+        self.mbUs = [pytensor.shared(rng.randn(n_outputs**2).astype(dtype), name='mbU'+str(i)) for i in range(n_components)]
+        self.sWUs = [pytensor.shared(-5.0 * np.ones([self.net.n_outputs, n_outputs**2], dtype=dtype), name='sWU'+str(i)) for i in range(n_components)]
+        self.sbUs = [pytensor.shared(-5.0 * np.ones(n_outputs**2, dtype=dtype), name='sbU'+str(i)) for i in range(n_components)]
         uaUs = [self.srng.normal((self.net.hs[-1].shape[0], n_outputs**2), dtype=dtype) for i in range(n_components)]
-        maUs = [tt.dot(self.net.hs[-1], mWU) + mbU for mWU, mbU in zip(self.mWUs, self.mbUs)]
-        saUs = [tt.dot(self.net.hs[-1]**2, tt.exp(2*sWU)) + tt.exp(2*sbU) for sWU, sbU in zip(self.sWUs, self.sbUs)]
-        zaUs = [tt.sqrt(saU) * uaU + maU for saU, uaU, maU in zip(saUs, uaUs, maUs)]
-        zaUs_reshaped = [tt.reshape(zaU, [-1, n_outputs, n_outputs]) for zaU in zaUs]
+        maUs = [pt.dot(self.net.hs[-1], mWU) + mbU for mWU, mbU in zip(self.mWUs, self.mbUs)]
+        saUs = [pt.dot(self.net.hs[-1]**2, pt.exp(2*sWU)) + pt.exp(2*sbU) for sWU, sbU in zip(self.sWUs, self.sbUs)]
+        zaUs = [pt.sqrt(saU) * uaU + maU for saU, uaU, maU in zip(saUs, uaUs, maUs)]
+        zaUs_reshaped = [pt.reshape(zaU, [-1, n_outputs, n_outputs]) for zaU in zaUs]
         triu_mask = np.triu(np.ones([n_outputs, n_outputs], dtype=dtype), 1)
         diag_mask = np.eye(n_outputs, dtype=dtype)
-        self.Us = [triu_mask * zaU + diag_mask * tt.exp(diag_mask * zaU) for zaU in zaUs_reshaped]
-        ldetUs = [tt.sum(tt.sum(diag_mask * zaU, axis=2), axis=1) for zaU in zaUs_reshaped]
+        self.Us = [triu_mask * zaU + diag_mask * pt.exp(diag_mask * zaU) for zaU in zaUs_reshaped]
+        ldetUs = [pt.sum(pt.sum(diag_mask * zaU, axis=2), axis=1) for zaU in zaUs_reshaped]
 
         # log probabilities
-        self.y = tt.matrix('y')
-        lprobs_comps = [-0.5 * tt.sum(tt.sum((self.y-m).dimshuffle([0, 'x', 1]) * U, axis=2)**2, axis=1) + ldetU for m, U, ldetU in zip(self.ms, self.Us, ldetUs)]
-        self.lprobs = tt.log(tt.sum(tt.exp(tt.stack(lprobs_comps, axis=1) + tt.log(self.a)), axis=1)) - (0.5 * n_outputs * np.log(2*np.pi))
-        self.mlprob = -tt.mean(self.lprobs)
+        self.y = pt.matrix('y')
+        lprobs_comps = [-0.5 * pt.sum(pt.sum((self.y-m).dimshuffle([0, 'x', 1]) * U, axis=2)**2, axis=1) + ldetU for m, U, ldetU in zip(self.ms, self.Us, ldetUs)]
+        self.lprobs = pt.log(pt.sum(pt.exp(pt.stack(lprobs_comps, axis=1) + pt.log(self.a)), axis=1)) - (0.5 * n_outputs * np.log(2*np.pi))
+        self.mlprob = -pt.mean(self.lprobs)
 
         # all parameters in one container
         self.uas = self.net.uas + [uaa] + uams + uaUs
@@ -354,7 +354,7 @@ class MDN_SVI:
         self.sps = self.net.sps + [self.sWa, self.sba] + self.sWms + self.sbms + self.sWUs + self.sbUs
         self.parms = self.mps + self.sps
 
-        # theano evaluation functions, will be compiled when first needed
+        # pytensor evaluation functions, will be compiled when first needed
         self.eval_comps_f = None
         self.eval_lprobs_f = None
         self.eval_comps_f_rand = None
@@ -392,24 +392,24 @@ class MDN_SVI:
         U[diag_mask] = np.log(U[diag_mask])
         for mWU, mbU in zip(self.mWUs, self.mbUs):
             mWU.set_value((rng.randn(self.net.n_outputs, self.n_outputs**2) / np.sqrt(self.net.n_outputs + 1)).astype(dtype))
-            mbU.set_value(U.flatten().astype(dtype))
+            mbU.set_value(U.flapten().astype(dtype))
 
 
     def _create_constant_uas_across_datapoints(self):
         """
-        Helper function. Creates and returns new theano variables representing noise, where noise is the same across
+        Helper function. Creates and returns new pytensor variables representing noise, where noise is the same across
         datapoints in the minibatch. Useful for binding the original noise variables in evaluation function where
         randomness is required but same predictions are needed across minibatch.
         """
 
-        n_data = tt.iscalar('n_data')
+        n_data = pt.iscalar('n_data')
 
-        net_uas = [tt.tile(self.srng.normal((n_units,), dtype=dtype), [n_data, 1]) for n_units in self.net.n_units[1:]]
-        uaa = tt.tile(self.srng.normal((self.n_components,), dtype=dtype), [n_data, 1])
-        uams = [tt.tile(self.srng.normal((self.n_outputs,), dtype=dtype), [n_data, 1]) for _ in range(self.n_components)]
-        uaUs = [tt.tile(self.srng.normal((self.n_outputs**2,), dtype=dtype), [n_data, 1]) for _ in range(self.n_components)]
+        net_uas = [pt.tile(self.srng.normal((n_units,), dtype=dtype), [n_data, 1]) for n_units in self.net.n_units[1:]]
+        uaa = pt.tile(self.srng.normal((self.n_components,), dtype=dtype), [n_data, 1])
+        uams = [pt.tile(self.srng.normal((self.n_outputs,), dtype=dtype), [n_data, 1]) for _ in range(self.n_components)]
+        uaUs = [pt.tile(self.srng.normal((self.n_outputs**2,), dtype=dtype), [n_data, 1]) for _ in range(self.n_components)]
 
-        # NOTE: order matters here
+        # NOTE: order mapters here
         uas = net_uas + [uaa] + uams + uaUs
 
         return n_data, uas
@@ -425,12 +425,12 @@ class MDN_SVI:
 
         if rand:
 
-            # compile theano function, if haven't already done so
+            # compile pytensor function, if haven't already done so
             if self.eval_comps_f_rand == None:
 
                 n_data, uas = self._create_constant_uas_across_datapoints()
 
-                self.eval_comps_f_rand = theano.function(
+                self.eval_comps_f_rand = pytensor.function(
                     inputs=[self.input, n_data],
                     outputs=[self.a] + self.ms + self.Us,
                     givens=zip(self.uas, uas)
@@ -440,9 +440,9 @@ class MDN_SVI:
 
         else:
 
-            # compile theano function, if haven't already done so
+            # compile pytensor function, if haven't already done so
             if self.eval_comps_f == None:
-                self.eval_comps_f = theano.function(
+                self.eval_comps_f = pytensor.function(
                     inputs=[self.input],
                     outputs=[self.a] + self.ms + self.Us,
                     givens=zip(self.zas, self.mas)
@@ -466,12 +466,12 @@ class MDN_SVI:
 
         if rand:
 
-            # compile theano function, if haven't already done so
+            # compile pytensor function, if haven't already done so
             if self.eval_lprobs_f_rand == None:
 
                 n_data, uas = self._create_constant_uas_across_datapoints()
 
-                self.eval_lprobs_f_rand = theano.function(
+                self.eval_lprobs_f_rand = pytensor.function(
                     inputs=[self.input, self.y, n_data],
                     outputs=self.lprobs,
                     givens=zip(self.uas, uas)
@@ -481,9 +481,9 @@ class MDN_SVI:
 
         else:
 
-            # compile theano function, if haven't already done so
+            # compile pytensor function, if haven't already done so
             if self.eval_lprobs_f == None:
-                self.eval_lprobs_f = theano.function(
+                self.eval_lprobs_f = pytensor.function(
                     inputs=[self.input, self.y],
                     outputs=self.lprobs,
                     givens=zip(self.zas, self.mas)

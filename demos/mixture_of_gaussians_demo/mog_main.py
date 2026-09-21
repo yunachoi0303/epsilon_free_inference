@@ -81,11 +81,11 @@ def show_histograms(n_samples=10000, n_bins=None):
     ms, xs = sim_joint(n_samples)
 
     fig, ax = plt.subplots(1, 1)
-    ax.hist(ms, bins=n_bins, normed=True)
+    ax.hist(ms, bins=n_bins, density=True)
     ax.set_xlabel('m')
 
     fig, ax = plt.subplots(1, 1)
-    ax.hist(xs, bins=n_bins, normed=True)
+    ax.hist(xs, bins=n_bins, density=True)
     ax.set_xlabel('x')
 
     fig, ax = plt.subplots(1, 1)
@@ -93,7 +93,7 @@ def show_histograms(n_samples=10000, n_bins=None):
     ax.set_xlabel('x')
     ax.set_ylabel('m')
 
-    plt.show(block=False)
+    plt.show()
 
 
 def run_sims_from_prior():
@@ -110,3 +110,8 @@ def run_sims_from_prior():
 
     # save data
     helper.save((ms, xs, dist), datadir + 'sims_from_prior.pkl')
+
+if __name__ == '__main__':
+    show_true_posterior()
+    # show_histograms()
+    # run_sims_from_prior()  # only if you actually want 10 million sims

@@ -1,6 +1,6 @@
 import util.mdn as mdn
 import util.LossFunction as lf
-import util.Trainer as Trainer
+import util.Trainer as Trainer 
 from .mog_main import *
 
 
@@ -246,7 +246,7 @@ def show_mdn_with_bootstrapping_posterior():
         # plot distance histograms
         ax = fig.add_subplot(2, n_bootstrap_iter/2, iter+1)
         ax.hist(dist, bins=int(np.sqrt(dist.size)))
-        ax.set_title('iteration = {0}'.format(iter+1))
+        ax.set_title(f'iteration = {iter+1}')
         ax.set_xlim([0.0, 12.0])
         all_dist = np.append(all_dist, dist)
 

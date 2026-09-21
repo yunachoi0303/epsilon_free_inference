@@ -3,7 +3,7 @@ import numpy.random as rng
 import scipy.stats
 import scipy.misc
 
-from util import helper 
+from . import helper 
 
 
 class Gaussian:

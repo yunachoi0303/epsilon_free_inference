@@ -18,6 +18,8 @@ Folder containing four subfolders, one for each demo in the paper.
   - `mog_mdn.py` --- runs MDN methods
   - `mog_res.py` --- collects and plots results
 
+Call the module with `python -m demos.mixture_of_gaussians_demo.mog_main` in the terminal.
+
 * `bayesian_linear_regression_demo`
   - `blr_main.py` --- sets up the model
   - `blr_abc.py` --- runs ABC methods

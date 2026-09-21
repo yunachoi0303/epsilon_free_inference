@@ -1,8 +1,7 @@
 from __future__ import division
-from itertools import izip
 import numpy as np
-import theano
-import theano.tensor as tt
+import pytensor
+import pytensor.tensor as pt
 
 
 class StepStrategy:
@@ -26,7 +25,7 @@ class ConstantStep(StepStrategy):
 
     def updates(self, parms, grads):
         """No updates to be made; step size is held constant throughout."""
-        new_parms = [p - self.step*g for p, g in izip(parms, grads)]
+        new_parms = [p - self.step*g for p, g in zip(parms, grads)]
         return zip(parms, new_parms)
 
 
@@ -48,9 +47,9 @@ class LinearDecay(StepStrategy):
 
     def updates(self, parms, grads):
         """Next step is linearly decayed."""
-        step = theano.shared(np.asarray(self.init, dtype=theano.config.floatX), name='step')
+        step = pytensor.shared(np.asarray(self.init, dtype=pytensor.config.floatX), name='step')
         new_step = step - self.init / self.maxiter
-        new_parms = [p - step*g for p, g in izip(parms, grads)]
+        new_parms = [p - step*g for p, g in zip(parms, grads)]
         return [(step, new_step)] + zip(parms, new_parms)
 
 
@@ -69,13 +68,13 @@ class AdaDelta(StepStrategy):
     def updates(self, parms, grads):
         """Return a list of updates to be made, both to adadelta's accumulators and the parameters."""
 
-        acc_gs = [theano.shared(np.zeros_like(p.get_value())) for p in parms]
-        acc_ds = [theano.shared(np.zeros_like(p.get_value())) for p in parms]
+        acc_gs = [pytensor.shared(np.zeros_like(p.get_value())) for p in parms]
+        acc_ds = [pytensor.shared(np.zeros_like(p.get_value())) for p in parms]
 
-        new_acc_gs = [self.rho * ag + (1-self.rho) * g**2 for g, ag in izip(grads, acc_gs)]
-        ds = [tt.sqrt((ad + self.eps) / (ag + self.eps)) * g for g, ag, ad in izip(grads, new_acc_gs, acc_ds)]
-        new_acc_ds = [self.rho * ad + (1-self.rho) * d**2 for d, ad in izip(ds, acc_ds)]
-        new_parms = [p - d for p, d in izip(parms, ds)]
+        new_acc_gs = [self.rho * ag + (1-self.rho) * g**2 for g, ag in zip(grads, acc_gs)]
+        ds = [pt.sqrt((ad + self.eps) / (ag + self.eps)) * g for g, ag, ad in zip(grads, new_acc_gs, acc_ds)]
+        new_acc_ds = [self.rho * ad + (1-self.rho) * d**2 for d, ad in zip(ds, acc_ds)]
+        new_parms = [p - d for p, d in zip(parms, ds)]
 
         return zip(acc_gs, new_acc_gs) + zip(acc_ds, new_acc_ds) + zip(parms, new_parms)
 
@@ -99,22 +98,22 @@ class Adam(StepStrategy):
     def updates(self, parms, grads):
         """Return a list of updates to be made, both to adams's running averages and the parameters."""
 
-        bm_t = theano.shared(np.asarray(self.bm).astype(theano.config.floatX))
-        bv_t = theano.shared(np.asarray(self.bv).astype(theano.config.floatX))
+        bm_t = pytensor.shared(np.asarray(self.bm).astype(pytensor.config.floatX))
+        bv_t = pytensor.shared(np.asarray(self.bv).astype(pytensor.config.floatX))
 
         new_bm_t = bm_t * self.bm
         new_bv_t = bv_t * self.bv
 
-        acc_m = [theano.shared(np.zeros_like(p.get_value())) for p in parms]
-        acc_v = [theano.shared(np.zeros_like(p.get_value())) for p in parms]
+        acc_m = [pytensor.shared(np.zeros_like(p.get_value())) for p in parms]
+        acc_v = [pytensor.shared(np.zeros_like(p.get_value())) for p in parms]
 
-        new_acc_m = [self.bm * am + (1-self.bm) * g for g, am in izip(grads, acc_m)]
-        new_acc_v = [self.bv * av + (1-self.bv) * g**2 for g, av in izip(grads, acc_v)]
+        new_acc_m = [self.bm * am + (1-self.bm) * g for g, am in zip(grads, acc_m)]
+        new_acc_v = [self.bv * av + (1-self.bv) * g**2 for g, av in zip(grads, acc_v)]
 
-        step = self.a * tt.sqrt(1-new_bv_t) / (1-new_bm_t)
+        step = self.a * pt.sqrt(1-new_bv_t) / (1-new_bm_t)
         eps = self.eps * (1-new_bv_t)
-        ds = [step * am / tt.sqrt(av + eps) for am, av in izip(new_acc_m, new_acc_v)]
+        ds = [step * am / pt.sqrt(av + eps) for am, av in zip(new_acc_m, new_acc_v)]
 
-        new_parms = [p - d for p, d in izip(parms, ds)]
+        new_parms = [p - d for p, d in zip(parms, ds)]
 
         return zip([bm_t, bv_t], [new_bm_t, new_bv_t]) + zip(acc_m, new_acc_m) + zip(acc_v, new_acc_v) + zip(parms, new_parms)
