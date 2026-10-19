@@ -136,7 +136,7 @@ def plot_results(save=True):
 
     lw = 3
     fontsize=22
-    savepath = '../nips_2016/figs/blr/'
+    savepath = '../demos/mixture_of_gaussians_demo/results/figs/blr/'
     matplotlib.rcParams.update({'font.size': fontsize})
     matplotlib.rc('text', usetex=True)
 

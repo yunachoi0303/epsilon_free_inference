@@ -28,7 +28,7 @@ class MDN:
         :param n_components: number of mixture components
         :return: None
         """
-
+        print(">>> ENTERED MDN_SVI.__init__")
         # check if inputs are of the right type
         assert isposint(n_inputs), 'Number of inputs must be a positive integer.'
         assert isposint(n_outputs), 'Number of outputs must be a positive integer.'
@@ -47,7 +47,7 @@ class MDN:
         # mixing coefficients
         self.Wa = pytensor.shared((rng.randn(self.net.n_outputs, n_components) / np.sqrt(self.net.n_outputs + 1)).astype(dtype), name='Wa')
         self.ba = pytensor.shared(rng.randn(n_components).astype(dtype), name='ba')
-        self.a = pt.nnet.softmax(pt.dot(self.net.hs[-1], self.Wa) + self.ba)
+        self.a = pt.special.softmax(pt.dot(self.net.hs[-1], self.Wa) + self.ba)
 
         # mixture means
         # the mean of each component is calculated separately. consider vectorizing this
@@ -68,7 +68,9 @@ class MDN:
         # log probabilities
         self.y = pt.matrix('y')
         lprobs_comps = [-0.5 * pt.sum(pt.sum((self.y-m).dimshuffle([0, 'x', 1]) * U, axis=2)**2, axis=1) + ldetU for m, U, ldetU in zip(self.ms, self.Us, ldetUs)]
-        self.lprobs = pt.log(pt.sum(pt.exp(pt.stack(lprobs_comps, axis=1) + pt.log(self.a)), axis=1)) - (0.5 * n_outputs * np.log(2*np.pi))
+        self.lprobs = pt.log(
+            pt.sum(
+                pt.exp(pt.stack(lprobs_comps, axis=1) + pt.log(self.a)), axis=1)) - (0.5 * n_outputs * np.log(2*np.pi))
         self.mlprob = -pt.mean(self.lprobs)
 
         # all parameters in one container
@@ -306,11 +308,11 @@ class MDN_SVI:
         self.mba = pytensor.shared(rng.randn(n_components).astype(dtype), name='mba')
         self.sWa = pytensor.shared(-5.0 * np.ones([self.net.n_outputs, n_components], dtype=dtype), name='sWa')
         self.sba = pytensor.shared(-5.0 * np.ones(n_components, dtype=dtype), name='sba')
-        uaa = self.srng.normal((self.net.hs[-1].shape[0], n_components), dtype=dtype)
+        uaa = self.srng.normal(size=(self.net.hs[-1].shape[0], n_components), dtype=dtype)
         maa = pt.dot(self.net.hs[-1], self.mWa) + self.mba
         saa = pt.dot(self.net.hs[-1]**2, pt.exp(2*self.sWa)) + pt.exp(2*self.sba)
         zaa = pt.sqrt(saa) * uaa + maa
-        self.a = pt.nnet.softmax(zaa)
+        self.a = pt.special.softmax(zaa)
 
         # mixture means
         # the mean of each component is calculated separately. consider vectorizing this
@@ -318,7 +320,7 @@ class MDN_SVI:
         self.mbms = [pytensor.shared(rng.randn(n_outputs).astype(dtype), name='mbm'+str(i)) for i in range(n_components)]
         self.sWms = [pytensor.shared(-5.0 * np.ones([self.net.n_outputs, n_outputs], dtype=dtype), name='sWm'+str(i)) for i in range(n_components)]
         self.sbms = [pytensor.shared(-5.0 * np.ones(n_outputs, dtype=dtype), name='sbm'+str(i)) for i in range(n_components)]
-        uams = [self.srng.normal((self.net.hs[-1].shape[0], n_outputs), dtype=dtype) for i in range(n_components)]
+        uams = [self.srng.normal(size=(self.net.hs[-1].shape[0], n_outputs), dtype=dtype) for i in range(n_components)]
         mams = [pt.dot(self.net.hs[-1], mWm) + mbm for mWm, mbm in zip(self.mWms, self.mbms)]
         sams = [pt.dot(self.net.hs[-1]**2, pt.exp(2*sWm)) + pt.exp(2*sbm) for sWm, sbm in zip(self.sWms, self.sbms)]
         zams = [pt.sqrt(sam) * uam + mam for sam, uam, mam in zip(sams, uams, mams)]
@@ -330,7 +332,7 @@ class MDN_SVI:
         self.mbUs = [pytensor.shared(rng.randn(n_outputs**2).astype(dtype), name='mbU'+str(i)) for i in range(n_components)]
         self.sWUs = [pytensor.shared(-5.0 * np.ones([self.net.n_outputs, n_outputs**2], dtype=dtype), name='sWU'+str(i)) for i in range(n_components)]
         self.sbUs = [pytensor.shared(-5.0 * np.ones(n_outputs**2, dtype=dtype), name='sbU'+str(i)) for i in range(n_components)]
-        uaUs = [self.srng.normal((self.net.hs[-1].shape[0], n_outputs**2), dtype=dtype) for i in range(n_components)]
+        uaUs = [self.srng.normal(size=(self.net.hs[-1].shape[0], n_outputs**2), dtype=dtype) for i in range(n_components)]
         maUs = [pt.dot(self.net.hs[-1], mWU) + mbU for mWU, mbU in zip(self.mWUs, self.mbUs)]
         saUs = [pt.dot(self.net.hs[-1]**2, pt.exp(2*sWU)) + pt.exp(2*sbU) for sWU, sbU in zip(self.sWUs, self.sbUs)]
         zaUs = [pt.sqrt(saU) * uaU + maU for saU, uaU, maU in zip(saUs, uaUs, maUs)]
@@ -343,7 +345,8 @@ class MDN_SVI:
         # log probabilities
         self.y = pt.matrix('y')
         lprobs_comps = [-0.5 * pt.sum(pt.sum((self.y-m).dimshuffle([0, 'x', 1]) * U, axis=2)**2, axis=1) + ldetU for m, U, ldetU in zip(self.ms, self.Us, ldetUs)]
-        self.lprobs = pt.log(pt.sum(pt.exp(pt.stack(lprobs_comps, axis=1) + pt.log(self.a)), axis=1)) - (0.5 * n_outputs * np.log(2*np.pi))
+        self.lprobs = pt.log(
+            pt.sum(pt.exp(pt.stack(lprobs_comps, axis=1) + pt.log(self.a)), axis=1)) - (0.5 * n_outputs * np.log(2*np.pi))
         self.mlprob = -pt.mean(self.lprobs)
 
         # all parameters in one container
@@ -366,6 +369,19 @@ class MDN_SVI:
         self.n_components = n_components
         self.act_fun = act_fun
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+
+        # Random streams cannot be pickled with modern PyTensor
+        state['srng'] = None
+
+        # Compiled PyTensor functions should not be pickled
+        state['eval_comps_f'] = None
+        state['eval_lprobs_f'] = None
+        state['eval_comps_f_rand'] = None
+        state['eval_lprobs_f_rand'] = None
+
+        return state
 
     def initialize_mog(self, y):
 

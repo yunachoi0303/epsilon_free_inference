@@ -69,3 +69,29 @@ Folder with utility classes and functions.
 * `helper.py`
     various helper functions
 
+
+#### **`MoG`** 
+param a: mixing coefficients
+This represent the relative weight or probability assigned to each individual probability distribution (such as a Gaussian component), determining how much each sub-population contributes to the overall dataset.
+
+param ms: means
+
+
+param Ps: precisions
+A performance metric that measures the proportion of positive predictions made by a model that are actually correct. 
+Precision = TP / (TP + FP)
+
+param Us: precision factors such that U'U = P
+'U' is the upper triangular matrix such that U'*U is the precision
+
+param Ss: covariances
+
+
+param xs: list of gaussian variables
+Two defining parameters are mean (μ) and variance (σ^2).
+The emperical rule for any Gaussian distribution 
+* 68% of the data falls within μ±1σ
+* 95% falls within μ±2σ
+* 99.7% falls within μ±3σ
+
+

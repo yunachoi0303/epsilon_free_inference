@@ -1,4 +1,5 @@
 import matplotlib
+from matplotlib.lines import Line2D
 from .mog_main import *
 from .mog_abc import run_mcmc_abc
 from .mog_mdn import n_bootstrap_iter
@@ -128,14 +129,14 @@ def plot_results():
 
     eps_rej, kls_rej, n_sims_rej, n_samples_rej = helper.load(plotsdir + 'rejection_abc_results.pkl')
     eps_mcm, kls_mcm, n_sims_mcm, n_samples_mcm, acc_rate_mcm = helper.load(plotsdir + 'mcmc_abc_results.pkl')
-    eps_smc, kls_smc, n_sims_smc, n_samples_smc = helper.load(plotsdir + 'smc_abc_results.pkl')
+    # eps_smc, kls_smc, n_sims_smc, n_samples_smc = helper.load(plotsdir + 'smc_abc_results.pkl')
     kl_mdn_prior, kl_prior_prop, kl_mdn_prop, n_sims_mdn_prior, n_sims_prior_prop, n_sims_mdn_prop = helper.load(plotsdir + 'mdn_abc_results.pkl')
 
     # plot kl vs eps
     fig, ax = plt.subplots(1, 1)
     ax.loglog(eps_rej, kls_rej, label='Rejection ABC')
     ax.loglog(eps_mcm, kls_mcm, label='MCMC ABC')
-    ax.loglog(eps_smc, kls_smc, label='SMC ABC')
+    # ax.loglog(eps_smc, kls_smc, label='SMC ABC')
     ax.loglog(ax.get_xlim(), [kl_mdn_prior]*2, label='MDN trained with prior')
     ax.loglog(ax.get_xlim(), [kl_prior_prop]*2, label='MDN proposal prior')
     ax.loglog(ax.get_xlim(), [kl_mdn_prop]*2, label='MDN trained with proposal')
@@ -162,7 +163,7 @@ def plot_results():
     fig, ax = plt.subplots(1, 1)
     ax.loglog(eps_rej, n_samples_rej, label='Rejection ABC')
     ax.loglog(eps_mcm, n_samples_mcm, label='MCMC ABC')
-    ax.loglog(eps_smc, n_samples_smc, label='SMC ABC')
+    # ax.loglog(eps_smc, n_samples_smc, label='SMC ABC')
     ax.set_xlabel('Tolerance')
     ax.set_ylabel('Effective sample size')
     plt.legend()
@@ -171,7 +172,7 @@ def plot_results():
     fig, ax = plt.subplots(1, 1)
     ax.loglog(kls_rej, n_sims_rej / n_samples_rej, label='Rejection ABC')
     ax.loglog(kls_mcm, n_sims_mcm / n_samples_mcm, label='MCMC ABC')
-    ax.loglog(kls_smc, n_sims_smc / n_samples_smc, label='SMC ABC')
+    # ax.loglog(kls_smc, n_sims_smc / n_samples_smc, label='SMC ABC')
     ax.loglog(kl_mdn_prior, n_sims_mdn_prior, 'o', label='MDN trained with prior')
     ax.loglog(kl_prior_prop, n_sims_prior_prop, 'o', label='MDN proposal prior')
     ax.loglog(kl_mdn_prop, n_sims_mdn_prop, 'o', label='MDN trained with proposal')
@@ -179,16 +180,16 @@ def plot_results():
     ax.set_ylabel('# simulations per effective sample')
     plt.legend()
 
-    plt.show(block=False)
+    plt.show(block=True)
 
 
-def plot_learnt_posteriors(save=True):
+def plot_learnt_posteriors(save=False):
 
     lw = 2
     fontsize=22
-    savepath = '../nips_2016/figs/mog/'
+    savepath = '../demos/mixture_of_gaussians_demo/results/figs/mog/'
     matplotlib.rcParams.update({'font.size': fontsize})
-    matplotlib.rc('text', usetex=True)
+    matplotlib.rc('text', usetex=False)
 
     fig, ax = plt.subplots(1, 1)
     xx = np.linspace(disp_lims[0], disp_lims[1], 1000)
@@ -234,15 +235,35 @@ def plot_learnt_posteriors(save=True):
     fig, ax = plt.subplots(1, 1)
     net = helper.load(netsdir + 'mdn_prior_hiddens_20_tanh_sims_10k.pkl')
     Z = np.exp(net.eval([xy[:, 0:1], xy[:, 1:2]])).reshape(list(X.shape))
-    cln = ax.contour(X, Y, helper.probs2contours(Z, levels), levels=levels, colors=['DarkRed', 'DarkGreen'])
-    plt.setp(cln.collections, lw=lw)
+    # cln = ax.contour(X, Y, helper.probs2contours(Z, levels), levels=levels, colors=['DarkRed', 'DarkGreen'])
+    # plt.setp(cln.collections, lw=lw)
+    cln = ax.contour(X, Y, helper.probs2contours(Z, levels), linewidths=lw)
     a, ms, _ = net.eval_comps(xx[:, np.newaxis])
     mm = np.sum(np.concatenate(ms, axis=1) * a, axis=1)
     mln = ax.plot(xx, mm, 'b', lw=lw)
     vln = ax.vlines(0, ax.get_ylim()[0], ax.get_ylim()[1], color='k', linestyle='--', lw=lw)
+
+    legend_handles = [
+                            mln[0],
+                            Line2D([0], [0], color='black', linewidth=lw),
+                            Line2D([0], [0], color='black', linewidth=lw),
+                            vln
+                        ]
+    
     ax.set_xlabel(r'$x$', labelpad=-1.0)
     ax.set_ylabel(r'$\theta$', labelpad=-15.0)
-    ax.legend([mln[0], cln.collections[0], cln.collections[1], vln], ['Mean', r'$75\%$ of mass', r'$99\%$ of mass', r'$x_o=0$'], loc='upper left', labelspacing=0.4, handletextpad=0.1, borderaxespad=0.3, handlelength=2.0, fontsize=fontsize)
+    # ax.legend([mln[0], cln.collections[0], cln.collections[1], vln], ['Mean', r'$75\%$ of mass', r'$99\%$ of mass', r'$x_o=0$'], loc='upper left', labelspacing=0.4, handletextpad=0.1, borderaxespad=0.3, handlelength=2.0, fontsize=fontsize)
+    
+    ax.legend(
+                legend_handles,
+                ['Mean', r'$75\%$ of mass', r'$99\%$ of mass', r'$x_o=0$'],
+                loc='upper left',
+                labelspacing=0.4,
+                handletextpad=0.1,
+                borderaxespad=0.3,
+                handlelength=2.0,
+                fontsize=fontsize
+            )
     fig.subplots_adjust(bottom=0.11)
     if save: fig.savefig(savepath + 'mdn_prior.pdf')
 
@@ -250,16 +271,42 @@ def plot_learnt_posteriors(save=True):
     fig, ax = plt.subplots(1, 1)
     net, _ = helper.load(netsdir + 'mdn_svi_proposal_hiddens_20_tanh_sims_1k.pkl')
     Z = np.exp(net.eval([xy[:, 0:1], xy[:, 1:2]])).reshape(list(X.shape))
-    cln = ax.contour(X, Y, helper.probs2contours(Z, levels), levels=levels, colors=['DarkRed', 'DarkGreen'])
-    plt.setp(cln.collections, lw=lw)
+    # cln = ax.contour(X, Y, helper.probs2contours(Z, levels), levels=levels, colors=['DarkRed', 'DarkGreen'])
+    # plt.setp(cln.collections, lw=lw)
+    cln = ax.contour(X, Y, helper.probs2contours(Z, levels), linewidths=lw)
     a, ms, _ = net.eval_comps(xx[:, np.newaxis])
     mm = np.sum(np.concatenate(ms, axis=1) * a, axis=1)
     mln = ax.plot(xx, mm, 'b', lw=lw)
     vln = ax.vlines(0, ax.get_ylim()[0], ax.get_ylim()[1], color='k', linestyle='--', lw=lw)
     ax.set_xlabel(r'$x$', labelpad=-1.0)
     ax.set_ylabel(r'$\theta$', labelpad=-15.0)
-    ax.legend([mln[0], cln.collections[0], cln.collections[1], vln], ['Mean', r'$75\%$ of mass', r'$99\%$ of mass', r'$x_o=0$'], loc='upper left', labelspacing=0.4, handletextpad=0.1, borderaxespad=0.3, handlelength=2.0, fontsize=fontsize)
+    # ax.legend([mln[0], cln.collections[0], cln.collections[1], vln], ['Mean', r'$75\%$ of mass', r'$99\%$ of mass', r'$x_o=0$'], loc='upper left', labelspacing=0.4, handletextpad=0.1, borderaxespad=0.3, handlelength=2.0, fontsize=fontsize)
+    
+    ax.legend(
+                legend_handles,
+                ['Mean', r'$75\%$ of mass', r'$99\%$ of mass', r'$x_o=0$'],
+                loc='upper left',
+                labelspacing=0.4,
+                handletextpad=0.1,
+                borderaxespad=0.3,
+                handlelength=2.0,
+                fontsize=fontsize
+            )
+    
     fig.subplots_adjust(bottom=0.11)
     if save: fig.savefig(savepath + 'mdn_proposal.pdf')
 
-    plt.show(block=False)
+    plt.show(block=True)
+
+if '__main__' == __name__:
+
+    # gather results
+    # gather_results_for_rejection_abc()
+    # gather_results_for_mcmc_abc()
+
+    # gather_results_for_smc_abc()
+    # gather_results_for_mdn_abc()
+
+    # # plot results
+    # plot_results()
+    plot_learnt_posteriors(save=False)

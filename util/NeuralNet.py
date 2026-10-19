@@ -238,6 +238,19 @@ class NeuralNetSvi:
         self.eval_f = None
         self.eval_f_rand = None
 
+    
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state['srng'] = None
+        state['eval_f'] = None
+        state['eval_f_rand'] = None
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.srng = RandomStream()
+        self.eval_f = None
+        self.eval_f_rand = None
 
     def addLayer(self, n_units, type):
         """Adds a new layer to the network,
@@ -282,7 +295,7 @@ class NeuralNetSvi:
         mb = pytensor.shared(np.zeros(n_units, dtype=dtype), name='mb' + str(self.n_layers))
         sW = pytensor.shared(-5.0 * np.ones([n_prev_units, n_units], dtype=dtype), name='sW' + str(self.n_layers))
         sb = pytensor.shared(-5.0 * np.ones(n_units, dtype=dtype), name='sb' + str(self.n_layers))
-        ua = self.srng.normal((self.hs[-1].shape[0], n_units), dtype=dtype)
+        ua = self.srng.normal(size=(self.hs[-1].shape[0], n_units), dtype=dtype)
         ma = pt.dot(self.hs[-1], mW) + mb
         sa = pt.dot(self.hs[-1]**2, pt.exp(2*sW)) + pt.exp(2*sb)
         za = pt.sqrt(sa) * ua + ma

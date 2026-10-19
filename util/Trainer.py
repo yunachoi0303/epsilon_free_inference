@@ -1,6 +1,7 @@
 import pytensor
 import pytensor.tensor as pt
 import matplotlib.pyplot as plt
+import numpy as np
 
 from . import StepStrategy as ss
 from . import DataStream as ds
@@ -43,7 +44,7 @@ class Trainer:
         self.make_update = pytensor.function(
             inputs=[idx],
             outputs=trn_loss,
-            givens=zip(trn_inputs, [x[idx] for x in trn_data]),
+            givens=list(zip(trn_inputs, [x[idx] for x in trn_data])),
             updates=step.updates(model.parms, grads)
         )
 
@@ -63,14 +64,15 @@ class Trainer:
             self.validate = pytensor.function(
                 inputs=[],
                 outputs=val_loss,
-                givens=zip(val_inputs, val_data)
+                givens=list(zip(val_inputs, val_data))
             )
 
         # initialize some variables
         self.loss = float('inf')
         self.idx_stream = ds.IndexSubSampler(self.n_trn_data)
 
-    def train(self, minibatch=None, tol=None, maxiter=None, verbose=True, monitor_every=None, show_progress=False, val_in_same_plot=True):
+
+    def train(self, minibatch=None, tol=0.0, maxiter=None, verbose=True, monitor_every=None, show_progress=False, val_in_same_plot=True):
         """
         Trains the model.
         :param minibatch: minibatch size
@@ -85,7 +87,7 @@ class Trainer:
 
         # parse input
         assert minibatch is None or isposint(minibatch), 'Minibatch size must be a positive integer or None.'
-        assert tol is None or tol > 0.0, 'Tolerance must be positive or None.'
+        assert tol >= 0.0, 'Tolerance must be positive.'
         assert maxiter is None or isposint(maxiter), 'Maximum iteration number must be a positive integer or None.'
         assert isinstance(verbose, bool), 'verbose must be boolean.'
         assert monitor_every is None or isposint(monitor_every), 'Monitoring frequency must be a positive integer on None.'

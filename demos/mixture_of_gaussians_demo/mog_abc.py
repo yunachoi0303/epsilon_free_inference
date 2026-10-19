@@ -1,4 +1,4 @@
-import scipy.misc
+import scipy
 from .mog_main import *
 
 
@@ -115,10 +115,10 @@ def run_smc_abc():
                 nsims += 1
 
             logkernel = -0.5 / var * (new_ms[i] - ms) ** 2
-            new_logweights[i] = -float('inf') if new_ms[i] < mu_a or new_ms[i] > mu_b else -scipy.misc.logsumexp(logweights + logkernel)
+            new_logweights[i] = -float('inf') if new_ms[i] < mu_a or new_ms[i] > mu_b else -scipy.special.logsumexp(logweights + logkernel)
 
         ms = new_ms
-        logweights = new_logweights - scipy.misc.logsumexp(new_logweights)
+        logweights = new_logweights - scipy.special.logsumexp(new_logweights)
         weights = np.exp(logweights)
 
         # calculate effective sample size

@@ -1,5 +1,8 @@
 import numpy as np
 import numpy.random as rng
+import matplotlib as mpl
+mpl.rcParams['toolbar'] = 'None'
+
 import matplotlib.pyplot as plt
 
 import util.pdf as pdf
@@ -51,9 +54,9 @@ def sim_joint(n_samples=1):
 def calc_posterior():
     """Calculates posterior analytically. Note that this assumes a flat improper prior."""
 
-    a = [alpha, 1-alpha]
-    ms = [x_obs, x_obs]
-    Ss = map(lambda s: [[s**2]], sigmas)
+    a = [alpha, 1-alpha]                    # Mixing coefficients for MoG. Weights need to sum to 1
+    ms = [x_obs, x_obs]                     # Mean parameters for MoG. Note that the mean is the same for both components since we are conditioning on the observed data.
+    Ss = map(lambda s: [[s**2]], sigmas)    # Covariance matrices for MoG. Note that the covariance is a 1x1 matrix since we are in 1D.
 
     return pdf.MoG(a=a, ms=ms, Ss=Ss)
 
@@ -72,6 +75,13 @@ def show_true_posterior():
     posterior = calc_posterior()
     helper.plot_pdf_marginals(pdf=posterior, lims=disp_lims)
 
+    m, S = posterior.calc_mean_and_cov()
+    # print the results 
+    print('True posterior')
+    print('-----------------')  
+    print(f'Posterior Mean: {m}')
+    print(f'Posterior Variance: {S[0][0]}')
+
 
 def show_histograms(n_samples=10000, n_bins=None):
     """Simulates from joint and shows histograms of simulations."""
@@ -80,18 +90,23 @@ def show_histograms(n_samples=10000, n_bins=None):
 
     ms, xs = sim_joint(n_samples)
 
-    fig, ax = plt.subplots(1, 1)
-    ax.hist(ms, bins=n_bins, density=True)
-    ax.set_xlabel('m')
+    # fig, ax = plt.subplots(1, 1)
+    # ax.hist(ms, bins=n_bins, density=True)
+    # ax.set_xlabel('m')
+    # ax.grid()
 
-    fig, ax = plt.subplots(1, 1)
-    ax.hist(xs, bins=n_bins, density=True)
-    ax.set_xlabel('x')
+    # fig, ax = plt.subplots(1, 1)
+    # ax.hist(xs, bins=n_bins, density=True)
+    # ax.set_xlabel('x')
+    # ax.grid()
 
     fig, ax = plt.subplots(1, 1)
     ax.plot(xs, ms, '.', ms=1)
     ax.set_xlabel('x')
     ax.set_ylabel('m')
+    ax.grid()
+    ax.set_xlim(-12, 12)
+    ax.set_ylim(-10, 10)
 
     plt.show()
 
@@ -114,4 +129,4 @@ def run_sims_from_prior():
 if __name__ == '__main__':
     show_true_posterior()
     # show_histograms()
-    # run_sims_from_prior()  # only if you actually want 10 million sims
+    # run_sims_from_prior() 

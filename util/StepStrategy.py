@@ -116,4 +116,9 @@ class Adam(StepStrategy):
 
         new_parms = [p - d for p, d in zip(parms, ds)]
 
-        return zip([bm_t, bv_t], [new_bm_t, new_bv_t]) + zip(acc_m, new_acc_m) + zip(acc_v, new_acc_v) + zip(parms, new_parms)
+        return (
+                    list(zip([bm_t, bv_t], [new_bm_t, new_bv_t]))
+                    + list(zip(acc_m, new_acc_m))
+                    + list(zip(acc_v, new_acc_v))
+                    + list(zip(parms, new_parms))
+                )

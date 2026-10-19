@@ -1,8 +1,10 @@
+import os
+os.environ["PYTENSOR_FLAGS"] = "exception_verbosity=high,optimizer=fast_compile"
+
 import util.mdn as mdn
 import util.LossFunction as lf
-import util.Trainer as Trainer 
+import util.Trainer as Trainer
 from .mog_main import *
-
 
 n_bootstrap_iter = 4
 
@@ -53,11 +55,16 @@ def train_mdn_on_sims_from_prior(save=True):
 
 def train_proposal_prior_with_bootstrapping(save=True):
     """Trains an svi mdn to return the posterior with boostrapping."""
-
     n_samples = 200
 
     # create an mdn
-    net = mdn.MDN_SVI(n_inputs=1, n_hiddens=[20], act_fun='tanh', n_outputs=1, n_components=1)
+    net = mdn.MDN_SVI(
+            n_inputs=1, 
+            n_hiddens=[20], 
+            act_fun='tanh', 
+            n_outputs=1, 
+            n_components=1
+        )
     regularizer = lf.regularizerSvi(net.mps, net.sps, 0.01)
     prior_proposal = None
 
@@ -72,7 +79,14 @@ def train_proposal_prior_with_bootstrapping(save=True):
 
             ms[i] = mu_a - 1.0
             while ms[i] < mu_a or ms[i] > mu_b:
-                ms[i] = sim_prior() if iter == 0 else prior_proposal.gen()[0]
+                if iter == 0:
+                    sample = sim_prior()
+                else:
+                    sample = prior_proposal.gen()
+
+                sample = np.asarray(sample).squeeze()
+                ms[i] = sample.item()
+                              
             xs[i] = sim_likelihood(ms[i])
             dist[i] = calc_dist(xs[i], x_obs)
 
@@ -84,7 +98,7 @@ def train_proposal_prior_with_bootstrapping(save=True):
         ax.hist(dist, bins=int(np.sqrt(n_samples)))
         ax.set_title('iteration = {0}'.format(iter + 1))
         ax.set_xlim([0.0, 12.0])
-        plt.show(block=False)
+        plt.show(block=True)
 
         # train an mdn to give the posterior
         minibatch = 50
@@ -93,7 +107,7 @@ def train_proposal_prior_with_bootstrapping(save=True):
         trainer = Trainer.Trainer(
             model=net,
             trn_data=[xs[:, np.newaxis], ms[:, np.newaxis]],
-            trn_loss=net.mlprob + regularizer / n_samples,
+            trn_loss = net.mlprob,
             trn_target=net.y
         )
         trainer.train(
@@ -115,7 +129,9 @@ def train_proposal_prior_with_bootstrapping(save=True):
 
 
 def train_mdn_with_proposal(save=True):
-    """Use the prior proposal learnt by bootstrapping to train an mdn."""
+    """
+    SNPE-A: Use the prior proposal learnt by bootstrapping to train an mdn.
+    """
 
     # load prior proposal
     net, _, prior_proposal, _ = helper.load(netsdir + 'mdn_svi_proposal_prior_{0}.pkl'.format(n_bootstrap_iter-1))
@@ -182,11 +198,11 @@ def show_mdn_posterior(filename):
     ax.contour(X, Y, Z)
     ax.set_xlabel('x')
     ax.set_ylabel('m')
-    ax.set_title('p(m|x)')
+    ax.set_title('MDN Conditional Probability Density, p(m|x)')
 
     # show mdn's parameters
     a, m, s = net.eval_comps(xx[:, np.newaxis])
-    s = map(lambda t: np.sqrt(1.0 / t[:, :, 0]), s)
+    s = list(map(lambda t: np.sqrt(1.0 / t[:, :, 0]), s))
     cmap = plt.get_cmap('rainbow')
     cols = [cmap(i) for i in np.linspace(0.0, 1.0, net.n_components)]
 
@@ -196,6 +212,7 @@ def show_mdn_posterior(filename):
     ax.set_ylim([-0.2, 1.2])
     ax.set_xlabel('x')
     ax.set_ylabel('mixing coefficient')
+    ax.set_title('MDN Mixing Coefficients, a(x)')
     ax.legend()
 
     fig, axs = plt.subplots(1, net.n_components, sharey=True)
@@ -209,7 +226,42 @@ def show_mdn_posterior(filename):
         axs[i].set_title('component {0}'.format(i))
         axs[i].legend()
 
-    plt.show(block=False)
+    plt.show(block=True)
+
+def show_true_and_learnt_posterior(filename, netsdir, lims=disp_lims):
+    """Shows the true posterior and the posterior learnt by the mdn saved in the given file."""
+
+    # show true posterior
+    fig, ax = plt.subplots(1, 1)
+    xx = np.linspace(lims[0], lims[1], 200)
+
+    true_posterior = calc_posterior()
+    pp_true = true_posterior.eval(xx[:, np.newaxis], log=False)
+
+
+    # show mdn's posterior
+    data = helper.load(netsdir + filename + '.pkl')
+    net = data[0] if isinstance(data, tuple) else data
+
+    # plot leant posterior
+    learnt_posterior = net.get_mog(np.asarray([x_obs]))
+    pp_learnt = learnt_posterior.eval(xx[:, np.newaxis], log=False)
+
+    fig, ax = plt.subplots(1, 1)
+
+    ax.plot(xx, pp_true, label='True posterior', linewidth=2, color='purple')
+    ax.plot(xx, pp_learnt, label='Learnt posterior (MDN)',
+            linewidth=2, linestyle='--', color='orange')
+
+    ax.set_xlim(lims)
+    ax.set_ylim(bottom=0)
+    ax.set_xlabel('Parameter')
+    ax.set_ylabel('Probability density')
+    ax.set_title('True vs Learnt Posterior')
+    ax.legend()
+    ax.grid(True)
+
+    plt.show()
 
 
 def show_mdn_with_proposal_posterior(filename):
@@ -224,8 +276,8 @@ def show_mdn_with_proposal_posterior(filename):
         for a, x in zip(posterior.a, posterior.xs):
             helper.plot_pdf_marginals(pdf=x, lims=disp_lims)
             plt.gca().set_title('a = {0:.2}'.format(a))
-
-    plt.show(block=False)
+    
+    plt.show(block=True)
 
 
 def show_mdn_with_bootstrapping_posterior():
@@ -244,10 +296,11 @@ def show_mdn_with_bootstrapping_posterior():
         helper.plot_pdf_marginals(pdf=approx_posterior, lims=disp_lims)
 
         # plot distance histograms
-        ax = fig.add_subplot(2, n_bootstrap_iter/2, iter+1)
+        ax = fig.add_subplot(2, round(n_bootstrap_iter/2), iter+1)
         ax.hist(dist, bins=int(np.sqrt(dist.size)))
-        ax.set_title(f'iteration = {iter+1}')
+        ax.set_title(f'Distance Histograms, Iteration = {iter+1}')
         ax.set_xlim([0.0, 12.0])
+        ax.grid()
         all_dist = np.append(all_dist, dist)
 
     # plot distance trace
@@ -255,5 +308,20 @@ def show_mdn_with_bootstrapping_posterior():
     ax.plot(all_dist, '.')
     ax.set_xlabel('samples')
     ax.set_ylabel('distance')
+    ax.grid()
+    ax.set_title('Distance Trace Across Bootstrapping Iterations')
 
-    plt.show(block=False)
+    plt.show(block=True)
+
+if __name__ == '__main__':
+    # train_mdn_on_sims_from_prior(save=True)
+    # train_proposal_prior_with_bootstrapping(save=True)
+    # train_mdn_with_proposal(save=True)
+
+    # show_true_posterior()
+    # show_histograms(n_samples=10000, n_bins=None)
+    # show_mdn_posterior(filename='mdn_prior_hiddens_20_tanh_sims_10k')
+    # show_true_and_learnt_posterior(filename='mdn_prior_hiddens_20_tanh_sims_10k', netsdir=netsdir, lims=disp_lims)
+    # show_mdn_with_proposal_posterior(filename='mdn_svi_proposal_hiddens_20_tanh_sims_1k')
+    show_mdn_with_bootstrapping_posterior()
+

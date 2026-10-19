@@ -1,7 +1,7 @@
 import numpy as np
 import numpy.random as rng
 import scipy.stats
-import scipy.misc
+import scipy
 
 from . import helper 
 
@@ -157,6 +157,9 @@ class Gaussian:
 
         return Gaussian(P=P, Pm=Pm)
 
+    def __truediv__(self, other):
+        return self.__div__(other)  
+    
     def __idiv__(self, other):
         """Incrementally divide by another gaussian. Note that the resulting gaussian might be improper."""
 
@@ -272,7 +275,7 @@ class MoG:
         """
 
         ps = np.array([c.eval(x, ii, log) for c in self.xs]).T
-        res = scipy.misc.logsumexp(ps + np.log(self.a), axis=1) if log else np.dot(ps, self.a)
+        res = scipy.special.logsumexp(ps + np.log(self.a), axis=1) if log else np.dot(ps, self.a)
 
         return res
 
@@ -292,7 +295,7 @@ class MoG:
             lcs[i] *= 0.5
 
         la = np.log(self.a) + lcs
-        la -= scipy.misc.logsumexp(la)
+        la -= scipy.special.logsumexp(la)
         a = np.exp(la)
 
         return MoG(a=a, xs=ys)
@@ -325,11 +328,14 @@ class MoG:
             lcs[i] *= 0.5
 
         la = np.log(self.a) + lcs
-        la -= scipy.misc.logsumexp(la)
+        la -= scipy.special.logsumexp(la)
         a = np.exp(la)
 
         return MoG(a=a, xs=ys)
 
+    def __truediv__(self, other):
+        return self.__div__(other)
+    
     def __idiv__(self, other):
         """Incrementally divide by a single gaussian."""
 
@@ -352,6 +358,7 @@ class MoG:
         S = np.sum(np.array([a * msq for a, msq in zip(self.a, msqs)]), axis=0) - np.outer(m, m)
 
         return m, S
+
 
     def project_to_gaussian(self):
         """Returns a gaussian with the same mean and precision as the mog."""
@@ -416,7 +423,7 @@ def fit_mog(x, n_components, w=None, tol=1.0e-9, maxiter=float('inf'), verbose=F
     # calculate log p(x,z), log p(x) and total log likelihood
     logPxz = np.array([scipy.stats.multivariate_normal.logpdf(x, ms[k], Ss[k]) for k in range(n_components)])
     logPxz += np.log(a)[:, np.newaxis]
-    logPx = scipy.misc.logsumexp(logPxz, axis=0)
+    logPx = scipy.special.logsumexp(logPxz, axis=0)
     loglik_prev = np.mean(logPx) if w is None else np.dot(w, logPx)
 
     while True:
@@ -443,7 +450,7 @@ def fit_mog(x, n_components, w=None, tol=1.0e-9, maxiter=float('inf'), verbose=F
         # calculate log p(x,z), log p(x) and total log likelihood
         logPxz = np.array([scipy.stats.multivariate_normal.logpdf(x, ms[k], Ss[k]) for k in range(n_components)])
         logPxz += np.log(a)[:, np.newaxis]
-        logPx = scipy.misc.logsumexp(logPxz, axis=0)
+        logPx = scipy.special.logsumexp(logPxz, axis=0)
         loglik = np.mean(logPx) if w is None else np.dot(w, logPx)
 
         # check progress

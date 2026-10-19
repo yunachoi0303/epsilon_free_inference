@@ -175,6 +175,7 @@ def plot_pdf_marginals(pdf, lims, gt=None, levels=(0.68, 0.95)):
         ax.plot(xx, pp)
         ax.set_xlim(lims)
         ax.set_ylim([0, ax.get_ylim()[1]])
+        ax.grid()
         if gt is not None: ax.vlines(gt, 0, ax.get_ylim()[1], color='r')
 
     else:
@@ -259,7 +260,7 @@ def plot_hist_marginals(data, lims=None, gt=None):
 def save(data, file):
     """Saves data to a file."""
 
-    f = open(file, 'w')
+    f = open(file, 'wb')       
     pickle.dump(data, f)
     f.close()
 
@@ -267,7 +268,7 @@ def save(data, file):
 def load(file):
     """Loads data from file."""
 
-    f = open(file, 'r')
+    f = open(file, 'rb')
     data = pickle.load(f)
     f.close()
     return data

@@ -31,7 +31,7 @@ def run_mcmc_abc(tol=0.002, step=0.2, n_samples=50000):
     dist = [cur_dist]
     n_accepted = 0
 
-    for i in xrange(n_samples):
+    for i in range(n_samples):
 
         prop_ps = cur_ps + step * rng.randn(n_dim)
         _, _, _, idts, _ = sim_likelihood(*prop_ps)
@@ -50,7 +50,7 @@ def run_mcmc_abc(tol=0.002, step=0.2, n_samples=50000):
         stats.append(cur_stats.copy())
         dist.append(cur_dist)
 
-        print 'simulation {0}, distance = {1}, acc rate = {2:%}'.format(i, cur_dist, float(n_accepted) / (i+1))
+        print('simulation {0}, distance = {1}, acc rate = {2:%}'.format(i, cur_dist, float(n_accepted) / (i+1)))
 
     ps = np.array(ps)
     stats = np.array(stats)
@@ -88,7 +88,7 @@ def run_smc_abc():
     iter = 0
     nsims = 0
 
-    for i in xrange(n_particles):
+    for i in range(n_particles):
 
         dist = float('inf')
 
@@ -104,7 +104,7 @@ def run_smc_abc():
     all_eps.append(eps)
     all_nsims.append(nsims)
 
-    print 'iteration = {0}, eps = {1:.2}, ess = {2:.2%}'.format(iter, eps, 1.0)
+    print('iteration = {0}, eps = {1:.2}, ess = {2:.2%}'.format(iter, eps, 1.0))
 
     while eps > eps_last:
 
@@ -120,7 +120,7 @@ def run_smc_abc():
         new_ps = np.empty_like(ps)
         new_logweights = np.empty_like(logweights)
 
-        for i in xrange(n_particles):
+        for i in range(n_particles):
 
             dist = float('inf')
 
@@ -133,22 +133,22 @@ def run_smc_abc():
                 nsims += 1
 
             logkernel = -0.5 * np.sum(np.linalg.solve(std, (new_ps[i] - ps).T) ** 2, axis=0)
-            new_logweights[i] = -float('inf') if eval_prior(*new_ps[i]) < 0.5 else -scipy.misc.logsumexp(logweights + logkernel)
+            new_logweights[i] = -float('inf') if eval_prior(*new_ps[i]) < 0.5 else -scipy.special.logsumexp(logweights + logkernel)
 
         ps = new_ps
-        logweights = new_logweights - scipy.misc.logsumexp(new_logweights)
+        logweights = new_logweights - scipy.special.logsumexp(new_logweights)
         weights = np.exp(logweights)
 
         # calculate effective sample size
         ess = 1.0 / (np.sum(weights ** 2) * n_particles)
-        print 'iteration = {0}, eps = {1:.2}, ess = {2:.2%}'.format(iter, eps, ess)
+        print('iteration = {0}, eps = {1:.2}, ess = {2:.2%}'.format(iter, eps, ess))
 
         if ess < ess_min:
 
             # resample particles
             new_ps = np.empty_like(ps)
 
-            for i in xrange(n_particles):
+            for i in range(n_particles):
                 idx = helper.discrete_sample(weights)[0]
                 new_ps[i] = ps[idx]
 
@@ -181,7 +181,7 @@ def show_rejection_abc_results(tols):
         # reject
         ps = ps_all[dist < tol, :]
         n_accepted = ps.shape[0]
-        print 'tolerance = {0}, acceptance rate = {1:%}'.format(tol, n_accepted / float(n_sims))
+        print('tolerance = {0}, acceptance rate = {1:%}'.format(tol, n_accepted / float(n_sims)))
 
         # distances histogram
         fig, ax = plt.subplots(1, 1)
@@ -193,14 +193,14 @@ def show_rejection_abc_results(tols):
         # print estimates with error bars
         means = np.mean(ps, axis=0)
         stds = np.std(ps, axis=0, ddof=1)
-        for i in xrange(3):
-            print 'p{0}: true = {1:.2} \t estimate = {2:.2} +/- {3:.2}'.format(i+1, true_ps[i], means[i], 2.0 * stds[i])
+        for i in range(3):
+            print('p{0}: true = {1:.2} \t estimate = {2:.2} +/- {3:.2}'.format(i+1, true_ps[i], means[i], 2.0 * stds[i]))
 
         # plot histograms and scatter plots
         helper.plot_hist_marginals(ps, lims=disp_lims, gt=true_ps)
         plt.gcf().suptitle('tolerance = {0:.2}'.format(tol))
 
-        print ''
+        print('')
 
     plt.show(block=False)
 
@@ -218,13 +218,13 @@ def show_mcmc_abc_results(tol, step):
         ps, _, dist, acc_rate, _ = helper.load(datadir + 'mcmc_abc_results_tol_{0}_step_{1}.pkl'.format(tol, step))
 
     n_dim = ps.shape[1]
-    print 'acceptance rate = {:%}'.format(acc_rate)
+    print('acceptance rate = {:%}'.format(acc_rate))
 
     # print estimates with error bars
     means = np.mean(ps, axis=0)
     stds = np.std(ps, axis=0, ddof=1)
-    for i in xrange(n_dim):
-        print 'p{0}: true = {1:.2} \t estimate = {2:.2} +/- {3:.2}'.format(i+1, true_ps[i], means[i], 2.0 * stds[i])
+    for i in range(n_dim):
+        print('p{0}: true = {1:.2} \t estimate = {2:.2} +/- {3:.2}'.format(i+1, true_ps[i], means[i], 2.0 * stds[i]))
 
     # plot histograms and scatter plots
     helper.plot_hist_marginals(ps, lims=disp_lims, gt=true_ps)
@@ -232,7 +232,7 @@ def show_mcmc_abc_results(tol, step):
 
     # plot traces
     _, axs = plt.subplots(n_dim, 1, sharex=True)
-    for i in xrange(n_dim):
+    for i in range(n_dim):
         axs[i].plot(ps[:, i])
         axs[i].set_ylabel('p' + str(i+1))
 
@@ -255,10 +255,10 @@ def show_smc_abc_results():
         # print estimates with error bars
         means = np.dot(weights, ps)
         stds = np.sqrt(np.dot(weights, ps ** 2) - means ** 2)
-        print 'eps = {0:.2}'.format(eps)
-        for i in xrange(n_dim):
-            print 'w{0}: true = {1:.2} \t estimate = {2:.2} +/- {3:.2}'.format(i+1, true_ps[i], means[i], 2.0 * stds[i])
-        print ''
+        print('eps = {0:.2}'.format(eps))
+        for i in range(n_dim):
+            print('w{0}: true = {1:.2} \t estimate = {2:.2} +/- {3:.2}'.format(i+1, true_ps[i], means[i], 2.0 * stds[i]))
+        print('')
 
         # plot histograms and scatter plots
         helper.plot_hist_marginals(ps, lims=disp_lims, gt=true_ps)
