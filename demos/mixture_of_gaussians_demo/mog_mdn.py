@@ -9,48 +9,6 @@ from .mog_main import *
 n_bootstrap_iter = 4
 
 
-def train_mdn_on_sims_from_prior(save=True):
-    """
-    Loads simulations done on parameters sampled from the prior, and trains an mdn on them.
-    """
-
-    # read data
-    ms, xs, _ = helper.load(datadir + 'sims_from_prior.pkl')
-    n_sims = 10 ** 4
-    ms = ms[:n_sims, np.newaxis]
-    xs = xs[:n_sims, np.newaxis]
-
-    # split data into train and validation sets
-    trn_perc = 0.95
-    n_trn_data = int(trn_perc * n_sims)
-    ms_trn, xs_trn = ms[:n_trn_data], xs[:n_trn_data]
-    ms_val, xs_val = ms[n_trn_data:], xs[n_trn_data:]
-
-    # train an mdn to give the posterior
-    minibatch = 100
-    maxiter = int(100 * n_trn_data / minibatch)
-    monitor_every = 1000
-    net = mdn.MDN(n_inputs=1, n_hiddens=[20], act_fun='tanh', n_outputs=1, n_components=2)
-    trainer = Trainer.Trainer(
-        model=net,
-        trn_data=[xs_trn, ms_trn],
-        trn_loss=net.mlprob,
-        trn_target=net.y,
-        val_data=[xs_val, ms_val],
-        val_loss=net.mlprob,
-        val_target=net.y
-    )
-    trainer.train(
-        maxiter=maxiter,
-        minibatch=minibatch,
-        show_progress=True,
-        monitor_every=monitor_every
-    )
-
-    # save the net
-    if save:
-        filename = netsdir + 'mdn_prior_hiddens_20_tanh_sims_10k.pkl'
-        helper.save(net, filename)
 
 
 def train_proposal_prior_with_bootstrapping(save=True):
@@ -179,12 +137,16 @@ def show_mdn_posterior(filename):
     net = data[0] if isinstance(data, tuple) else data
 
     # plot leant posterior
-    posterior = net.get_mog(np.asarray([x_obs]))
-    helper.plot_pdf_marginals(pdf=posterior, lims=disp_lims)
-    if posterior.n_components > 1:
-        for a, x in zip(posterior.a, posterior.xs):
-            helper.plot_pdf_marginals(pdf=x, lims=disp_lims)
-            plt.gca().set_title('a = {0:.2}'.format(a))
+    learnt_posterior = net.get_mog(np.asarray([x_obs]))
+    m, S = learnt_posterior.calc_mean_and_cov()
+
+    title = f'Learnt Posterior (MDN)\n Mean = {m.item():.4f}, Variance = {S[0][0]:.4f}'
+    helper.plot_pdf_marginals(pdf=learnt_posterior, lims=disp_lims, title=title)
+    
+    if learnt_posterior.n_components > 1:
+        for a, x in zip(learnt_posterior.a, learnt_posterior.xs):
+            title = f'Learnt Posterior Component (MDN), a = {a:.2f}'
+            helper.plot_pdf_marginals(pdf=x, lims=disp_lims, title=title)
 
     # grids for plotting
     xx = np.linspace(-12.0, 12.0, 100)
@@ -195,9 +157,10 @@ def show_mdn_posterior(filename):
     # show mdn's conditional probability density
     fig, ax = plt.subplots(1, 1)
     Z = np.exp(net.eval([xy[:, 0:1], xy[:, 1:2]])).reshape(list(X.shape))
+    ax.grid()
     ax.contour(X, Y, Z)
-    ax.set_xlabel('x')
-    ax.set_ylabel('m')
+    ax.set_xlabel('Likelihood, x')
+    ax.set_ylabel('Prior, m')
     ax.set_title('MDN Conditional Probability Density, p(m|x)')
 
     # show mdn's parameters
@@ -207,6 +170,7 @@ def show_mdn_posterior(filename):
     cols = [cmap(i) for i in np.linspace(0.0, 1.0, net.n_components)]
 
     fig, ax = plt.subplots(1, 1)
+    ax.grid()
     for i in range(net.n_components):
         ax.plot(xx, a[:, i], color=cols[i], label='component {0}'.format(i))
     ax.set_ylim([-0.2, 1.2])
@@ -218,40 +182,44 @@ def show_mdn_posterior(filename):
     fig, axs = plt.subplots(1, net.n_components, sharey=True)
     axs = [axs] if net.n_components == 1 else axs
     for i in range(net.n_components):
+        axs[i].grid()
         axs[i].plot(xx, m[i], '-', color=cols[i], label='m')
         axs[i].plot(xx, m[i] + s[i], ':', color=cols[i], label='m +/- s')
         axs[i].plot(xx, m[i] - s[i], ':', color=cols[i])
         axs[i].set_xlabel('x')
-        axs[i].set_xlabel('m')
+        axs[i].set_ylabel('m')
         axs[i].set_title('component {0}'.format(i))
         axs[i].legend()
 
     plt.show(block=True)
 
-def show_true_and_learnt_posterior(filename, netsdir, lims=disp_lims):
-    """Shows the true posterior and the posterior learnt by the mdn saved in the given file."""
 
-    # show true posterior
-    fig, ax = plt.subplots(1, 1)
+
+
+def show_mdn_with_proposal_posterior(filename, lims=disp_lims):
+    """Shows the posterior learnt by the mdn saved in the given file."""
+
+    _, ax = plt.subplots(1, 1)
     xx = np.linspace(lims[0], lims[1], 200)
-
+    
+    # show true posterior
     true_posterior = calc_posterior()
-    pp_true = true_posterior.eval(xx[:, np.newaxis], log=False)
-
+    true_m, true_S = true_posterior.calc_mean_and_cov()
 
     # show mdn's posterior
     data = helper.load(netsdir + filename + '.pkl')
-    net = data[0] if isinstance(data, tuple) else data
+    net = data[1] if isinstance(data, tuple) else data
 
-    # plot leant posterior
     learnt_posterior = net.get_mog(np.asarray([x_obs]))
+    learnt_m, learnt_S = learnt_posterior.calc_mean_and_cov() 
+
+    pp_true = true_posterior.eval(xx[:, np.newaxis], log=False)
     pp_learnt = learnt_posterior.eval(xx[:, np.newaxis], log=False)
 
-    fig, ax = plt.subplots(1, 1)
-
     ax.plot(xx, pp_true, label='True posterior', linewidth=2, color='purple')
-    ax.plot(xx, pp_learnt, label='Learnt posterior (MDN)',
-            linewidth=2, linestyle='--', color='orange')
+    ax.plot(xx, pp_learnt, label='Learnt posterior (SNPE-A)', linewidth=2, linestyle='--', color='orange')
+    ax.text(xx[-1] - 3, pp_true[-1] + 1.4, f'True Posterior Mean: {true_m.item():.4f} \nTrue Posterior Variance: {true_S[0][0]:.4f}', color='purple', va='center')
+    ax.text(xx[-1] - 3, pp_learnt[-1] + 1, f'Learnt Posterior Mean: {learnt_m.item():.4f} \nLearnt Posterior Variance: {learnt_S[0][0]:.4f}', color='orange', va='center')
 
     ax.set_xlim(lims)
     ax.set_ylim(bottom=0)
@@ -260,22 +228,19 @@ def show_true_and_learnt_posterior(filename, netsdir, lims=disp_lims):
     ax.set_title('True vs Learnt Posterior')
     ax.legend()
     ax.grid(True)
-
     plt.show()
 
 
-def show_mdn_with_proposal_posterior(filename):
-    """Shows the posterior learnt by the mdn saved in the given file."""
-
+    ########################################################
     # load mdn
     _, posterior = helper.load(netsdir + filename + '.pkl')
+    m, S = posterior.calc_mean_and_cov()
 
-    # plot leant posterior
-    helper.plot_pdf_marginals(pdf=posterior, lims=disp_lims)
+    # plot learnt posterior
+    helper.plot_pdf_marginals(pdf=posterior, lims=disp_lims, title=f'Learnt Posterior (SNPE-A)\n Mean = {m.item():.4f}, Variance = {S[0][0]:.4f}')
     if posterior.n_components > 1:
         for a, x in zip(posterior.a, posterior.xs):
-            helper.plot_pdf_marginals(pdf=x, lims=disp_lims)
-            plt.gca().set_title('a = {0:.2}'.format(a))
+            helper.plot_pdf_marginals(pdf=x, lims=disp_lims, title= f'Learnt Posterior (SNPE-A), a = {a:.2f}')
     
     plt.show(block=True)
 
@@ -290,7 +255,6 @@ def show_mdn_with_bootstrapping_posterior():
 
         # load approximate posterior
         _, approx_posterior, _, dist = helper.load(netsdir + 'mdn_svi_proposal_prior_{0}.pkl'.format(iter))
-        print(approx_posterior.a)
 
         # plot pdf
         helper.plot_pdf_marginals(pdf=approx_posterior, lims=disp_lims)
@@ -314,14 +278,10 @@ def show_mdn_with_bootstrapping_posterior():
     plt.show(block=True)
 
 if __name__ == '__main__':
-    # train_mdn_on_sims_from_prior(save=True)
     # train_proposal_prior_with_bootstrapping(save=True)
     # train_mdn_with_proposal(save=True)
 
-    # show_true_posterior()
-    # show_histograms(n_samples=10000, n_bins=None)
-    # show_mdn_posterior(filename='mdn_prior_hiddens_20_tanh_sims_10k')
-    # show_true_and_learnt_posterior(filename='mdn_prior_hiddens_20_tanh_sims_10k', netsdir=netsdir, lims=disp_lims)
-    # show_mdn_with_proposal_posterior(filename='mdn_svi_proposal_hiddens_20_tanh_sims_1k')
-    show_mdn_with_bootstrapping_posterior()
+    # show_mdn_posterior(filename='mdn_svi_proposal_hiddens_20_tanh_sims_1k')
+    show_mdn_with_proposal_posterior(filename='mdn_svi_proposal_hiddens_20_tanh_sims_1k')
+    # show_mdn_with_bootstrapping_posterior()
 

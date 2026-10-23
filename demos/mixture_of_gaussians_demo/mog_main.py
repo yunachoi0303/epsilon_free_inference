@@ -91,42 +91,28 @@ def show_histograms(n_samples=10000, n_bins=None):
     ms, xs = sim_joint(n_samples)
 
     # fig, ax = plt.subplots(1, 1)
+    # ax.grid()
     # ax.hist(ms, bins=n_bins, density=True)
     # ax.set_xlabel('m')
-    # ax.grid()
-
+    
     # fig, ax = plt.subplots(1, 1)
+    # ax.grid()
     # ax.hist(xs, bins=n_bins, density=True)
     # ax.set_xlabel('x')
-    # ax.grid()
 
     fig, ax = plt.subplots(1, 1)
-    ax.plot(xs, ms, '.', ms=1)
-    ax.set_xlabel('x')
-    ax.set_ylabel('m')
     ax.grid()
+    ax.plot(xs, ms, '.', ms=1)
+    ax.set_xlabel('Simulated Likelihood, x')
+    ax.set_ylabel('Simulated Prior, m')
+    ax.set_title('Simulated Joint Distribution')
     ax.set_xlim(-12, 12)
     ax.set_ylim(-10, 10)
 
     plt.show()
 
 
-def run_sims_from_prior():
-    """
-    Runs several simulations with parameters sampled from the prior. Saves the parameters, summary statistics and
-    distances with the observed summary statistic. Intention is to use the data for rejection abc and to train mdns.
-    """
-
-    n_sims = 10 ** 7
-
-    # generate new data
-    ms, xs = sim_joint(n_sims)
-    dist = calc_dist(xs, x_obs)
-
-    # save data
-    helper.save((ms, xs, dist), datadir + 'sims_from_prior.pkl')
 
 if __name__ == '__main__':
     show_true_posterior()
-    # show_histograms()
-    # run_sims_from_prior() 
+    show_histograms()
