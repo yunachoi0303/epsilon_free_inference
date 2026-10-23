@@ -127,64 +127,31 @@ def gather_results_for_mdn_abc():
 
 def plot_results():
 
-    eps_rej, kls_rej, n_sims_rej, n_samples_rej = helper.load(plotsdir + 'rejection_abc_results.pkl')
-    eps_mcm, kls_mcm, n_sims_mcm, n_samples_mcm, acc_rate_mcm = helper.load(plotsdir + 'mcmc_abc_results.pkl')
-    # eps_smc, kls_smc, n_sims_smc, n_samples_smc = helper.load(plotsdir + 'smc_abc_results.pkl')
-    kl_mdn_prior, kl_prior_prop, kl_mdn_prop, n_sims_mdn_prior, n_sims_prior_prop, n_sims_mdn_prop = helper.load(plotsdir + 'mdn_abc_results.pkl')
+    _, kl_prior_prop, kl_mdn_prop, _, n_sims_prior_prop, n_sims_mdn_prop = helper.load(plotsdir + 'mdn_abc_results.pkl')
 
-    # plot kl vs eps
+    # plot KL vs epsilon 
     fig, ax = plt.subplots(1, 1)
-    ax.loglog(eps_rej, kls_rej, label='Rejection ABC')
-    ax.loglog(eps_mcm, kls_mcm, label='MCMC ABC')
-    # ax.loglog(eps_smc, kls_smc, label='SMC ABC')
-    ax.loglog(ax.get_xlim(), [kl_mdn_prior]*2, label='MDN trained with prior')
+    ax.grid()
     ax.loglog(ax.get_xlim(), [kl_prior_prop]*2, label='MDN proposal prior')
     ax.loglog(ax.get_xlim(), [kl_mdn_prop]*2, label='MDN trained with proposal')
     ax.set_xlabel('Tolerance')
-    ax.set_ylabel('KL divergence')
-    plt.legend()
+    ax.set_ylabel('KL Divergence')
+    ax.set_title('KL Divergence vs Epsilon')
+    plt.legend(loc='center')
 
-    # plot acceptance rate vs eps for rejection abc
+    # plot KL Divergence vs number of simulations
     fig, ax = plt.subplots(1, 1)
-    ax.loglog(eps_rej, n_samples_rej / n_sims_rej, label='Rejection ABC')
-    ax.set_xlabel('Tolerance')
-    ax.set_ylabel('Acceptance rate')
-    plt.legend()
-
-    # plot acceptance rate vs eps for mcmc abc
-    fig, ax = plt.subplots(1, 1)
-    ax.semilogx(eps_mcm, acc_rate_mcm, label='MCMC ABC')
-    ax.set_xlabel('Tolerance')
-    ax.set_ylabel('Acceptance rate')
-    ax.set_ylim([0.0, 1.0])
-    plt.legend()
-
-    # plot number of effective samples vs eps for abc methods
-    fig, ax = plt.subplots(1, 1)
-    ax.loglog(eps_rej, n_samples_rej, label='Rejection ABC')
-    ax.loglog(eps_mcm, n_samples_mcm, label='MCMC ABC')
-    # ax.loglog(eps_smc, n_samples_smc, label='SMC ABC')
-    ax.set_xlabel('Tolerance')
-    ax.set_ylabel('Effective sample size')
-    plt.legend()
-
-    # plot number of simulations vs kl
-    fig, ax = plt.subplots(1, 1)
-    ax.loglog(kls_rej, n_sims_rej / n_samples_rej, label='Rejection ABC')
-    ax.loglog(kls_mcm, n_sims_mcm / n_samples_mcm, label='MCMC ABC')
-    # ax.loglog(kls_smc, n_sims_smc / n_samples_smc, label='SMC ABC')
-    ax.loglog(kl_mdn_prior, n_sims_mdn_prior, 'o', label='MDN trained with prior')
+    ax.grid()
     ax.loglog(kl_prior_prop, n_sims_prior_prop, 'o', label='MDN proposal prior')
     ax.loglog(kl_mdn_prop, n_sims_mdn_prop, 'o', label='MDN trained with proposal')
-    ax.set_xlabel('KL divergence')
-    ax.set_ylabel('# simulations per effective sample')
-    plt.legend()
-
+    ax.set_xlabel('KL Divergence')
+    ax.set_ylabel('# Simulations per Effective Sample')
+    ax.set_title('KL Divergence vs Number of Simulations')
+    plt.legend(loc='best')
     plt.show(block=True)
 
 
 def plot_learnt_posteriors(save=False):
-
     lw = 2
     fontsize=22
     savepath = '../demos/mixture_of_gaussians_demo/results/figs/mog/'
@@ -308,5 +275,5 @@ if '__main__' == __name__:
     # gather_results_for_mdn_abc()
 
     # # plot results
-    # plot_results()
-    plot_learnt_posteriors(save=False)
+    plot_results()
+    # plot_learnt_posteriors(save=False)

@@ -163,7 +163,7 @@ def probs2contours(probs, levels):
     return contours
 
 
-def plot_pdf_marginals(pdf, lims, gt=None, levels=(0.68, 0.95)):
+def plot_pdf_marginals(pdf, lims, gt=None, levels=(0.68, 0.95), title=None):
     """Plots marginals of a pdf, for each variable and pair of variables."""
 
     if pdf.ndim == 1:
@@ -175,6 +175,8 @@ def plot_pdf_marginals(pdf, lims, gt=None, levels=(0.68, 0.95)):
         ax.plot(xx, pp)
         ax.set_xlim(lims)
         ax.set_ylim([0, ax.get_ylim()[1]])
+        if title:
+            ax.set_title(title)
         ax.grid()
         if gt is not None: ax.vlines(gt, 0, ax.get_ylim()[1], color='r')
 
