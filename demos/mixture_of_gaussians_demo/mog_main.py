@@ -69,11 +69,15 @@ def calc_dist(xs_1, xs_2):
     return dist
 
 
+##################################################################################
+# PLOTTING FUNCTIONS
+##################################################################################
+
 def show_true_posterior():
     """Calculates analytically and shows the true posterior."""
 
     posterior = calc_posterior()
-    helper.plot_pdf_marginals(pdf=posterior, lims=disp_lims)
+    helper.plot_pdf_marginals(pdf=posterior, lims=disp_lims, title='True Posterior')
 
     m, S = posterior.calc_mean_and_cov()
     # print the results 
@@ -114,5 +118,5 @@ def show_histograms(n_samples=10000, n_bins=None):
 
 
 if __name__ == '__main__':
-    show_true_posterior()
+    # show_true_posterior()
     show_histograms()
