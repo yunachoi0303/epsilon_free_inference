@@ -95,3 +95,20 @@ The emperical rule for any Gaussian distribution
 * 99.7% falls within μ±3σ
 
 
+## **Files**
+
+`mdn_svi_proposal_hiddens_20_tanh_sims_1k`
+| Position | Name | Description |
+| :---     | :--- | :---       |
+| 1        | `net`| The trained MDN_SVI network, i.e. its learnt variational weight means and log-stds. It started as the network loaded from `mdn_svi_proposal_prior_<n_bootstrap_iter-1>.pkl`, was expanded to 2 mixture components by `replicate_gaussian_mdn(net, 2)`, and was then trained on the 1000 simulations. |
+| 2 | `approx_posterior` | A MoG object: the network’s posterior at `x_obs` with negligible components pruned (threshold `1e-3`), divided by `prior_proposal`. |
+
+
+`mdn_svi_proposal_prior_<n_bootstrap_iter>.pkl`
+| Position | Name | Description |
+| :---     | :--- | :---       |
+| 1        | `net` | The MDN-SVI after this iteration’s training (1 input, one hidden layer of 20 tanh units, 1 output, 1 component). |
+| 2        | `approx_posterior` | A MoG: the network’s posterior at `x_obs`, pruned at `1e-3`. At `iter == 0` it is used as is. At later iterations it is `mdn_mog / prior_proposal`, the SNPE-A correction for having trained on samples from the proposal. |
+| 3        | `prior_proposal` | `approx_posterior.project_to_gaussian()`: a single Gaussian with the same mean and covariance as `approx_posterior`. |
+| 4        | `dist` | The 200 distances `calc_dist(xs[i], x_obs)` between each simulated data point and the observed one, from this iteration’s simulations. |
+

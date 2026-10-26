@@ -169,16 +169,20 @@ def plot_pdf_marginals(pdf, lims, gt=None, levels=(0.68, 0.95), title=None):
     if pdf.ndim == 1:
 
         fig, ax = plt.subplots(1, 1)
-        xx = np.linspace(lims[0], lims[1], 200)
 
+        xx = np.linspace(lims[0], lims[1], 200)
         pp = pdf.eval(xx[:, np.newaxis], log=False)
+
         ax.plot(xx, pp)
         ax.set_xlim(lims)
         ax.set_ylim([0, ax.get_ylim()[1]])
+        ax.grid()
+
         if title:
             ax.set_title(title)
-        ax.grid()
-        if gt is not None: ax.vlines(gt, 0, ax.get_ylim()[1], color='r')
+
+        if gt is not None: 
+            ax.vlines(gt, 0, ax.get_ylim()[1], color='r')
 
     else:
 

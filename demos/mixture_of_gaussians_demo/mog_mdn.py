@@ -9,10 +9,13 @@ from .mog_main import *
 n_bootstrap_iter = 4
 
 
-
+##################################################################################
+# NETWORK TRAINING 
+##################################################################################
 
 def train_proposal_prior_with_bootstrapping(save=True):
-    """Trains an svi mdn to return the posterior with boostrapping."""
+    """Trains an MDN-SVI to return the posterior with bootstrapping."""
+    
     n_samples = 200
 
     # create an mdn
@@ -88,7 +91,7 @@ def train_proposal_prior_with_bootstrapping(save=True):
 
 def train_mdn_with_proposal(save=True):
     """
-    SNPE-A: Use the prior proposal learnt by bootstrapping to train an mdn.
+    SNPE-A: Uses the prior proposal learnt by bootstrapping to train an mdn.
     """
 
     # load prior proposal
@@ -129,6 +132,11 @@ def train_mdn_with_proposal(save=True):
         helper.save((net, approx_posterior), filename)
 
 
+
+##################################################################################
+# PLOTTING FUNCTIONS
+##################################################################################
+
 def show_mdn_posterior(filename):
     """Shows the posterior learnt by the mdn saved in the given file."""
 
@@ -136,17 +144,20 @@ def show_mdn_posterior(filename):
     data = helper.load(netsdir + filename + '.pkl')
     net = data[0] if isinstance(data, tuple) else data
 
-    # plot leant posterior
+
+    # PLOT 1: Learnt posterior
     learnt_posterior = net.get_mog(np.asarray([x_obs]))
     m, S = learnt_posterior.calc_mean_and_cov()
 
     title = f'Learnt Posterior (MDN)\n Mean = {m.item():.4f}, Variance = {S[0][0]:.4f}'
     helper.plot_pdf_marginals(pdf=learnt_posterior, lims=disp_lims, title=title)
-    
+
+    # PLOT 2: Learnt posterior components
     if learnt_posterior.n_components > 1:
         for a, x in zip(learnt_posterior.a, learnt_posterior.xs):
             title = f'Learnt Posterior Component (MDN), a = {a:.2f}'
             helper.plot_pdf_marginals(pdf=x, lims=disp_lims, title=title)
+
 
     # grids for plotting
     xx = np.linspace(-12.0, 12.0, 100)
@@ -154,7 +165,7 @@ def show_mdn_posterior(filename):
     X, Y = np.meshgrid(xx, yy)
     xy = np.stack([X.flatten(), Y.flatten()], axis=1)
 
-    # show mdn's conditional probability density
+    # PLOT 3: MDN's conditional probability density
     fig, ax = plt.subplots(1, 1)
     Z = np.exp(net.eval([xy[:, 0:1], xy[:, 1:2]])).reshape(list(X.shape))
     ax.grid()
@@ -162,6 +173,7 @@ def show_mdn_posterior(filename):
     ax.set_xlabel('Likelihood, x')
     ax.set_ylabel('Prior, m')
     ax.set_title('MDN Conditional Probability Density, p(m|x)')
+    fig.canvas.manager.set_window_title('PLOT 3')
 
     # show mdn's parameters
     a, m, s = net.eval_comps(xx[:, np.newaxis])
@@ -169,6 +181,7 @@ def show_mdn_posterior(filename):
     cmap = plt.get_cmap('rainbow')
     cols = [cmap(i) for i in np.linspace(0.0, 1.0, net.n_components)]
 
+    # PLOT 4: MDN's mixing coefficients
     fig, ax = plt.subplots(1, 1)
     ax.grid()
     for i in range(net.n_components):
@@ -177,8 +190,10 @@ def show_mdn_posterior(filename):
     ax.set_xlabel('x')
     ax.set_ylabel('mixing coefficient')
     ax.set_title('MDN Mixing Coefficients, a(x)')
+    fig.canvas.manager.set_window_title('PLOT 4')
     ax.legend()
 
+    # PLOT 5: MDN's means and standard deviations
     fig, axs = plt.subplots(1, net.n_components, sharey=True)
     axs = [axs] if net.n_components == 1 else axs
     for i in range(net.n_components):
@@ -190,6 +205,7 @@ def show_mdn_posterior(filename):
         axs[i].set_ylabel('m')
         axs[i].set_title('component {0}'.format(i))
         axs[i].legend()
+    fig.canvas.manager.set_window_title('PLOT 5')
 
     plt.show(block=True)
 
@@ -197,7 +213,9 @@ def show_mdn_posterior(filename):
 
 
 def show_mdn_with_proposal_posterior(filename, lims=disp_lims):
-    """Shows the posterior learnt by the mdn saved in the given file."""
+    """
+    Shows the posterior learnt by the mdn saved in the given file.
+    """
 
     _, ax = plt.subplots(1, 1)
     xx = np.linspace(lims[0], lims[1], 200)
@@ -207,19 +225,16 @@ def show_mdn_with_proposal_posterior(filename, lims=disp_lims):
     true_m, true_S = true_posterior.calc_mean_and_cov()
 
     # show mdn's posterior
-    data = helper.load(netsdir + filename + '.pkl')
-    net = data[1] if isinstance(data, tuple) else data
-
-    learnt_posterior = net.get_mog(np.asarray([x_obs]))
+    _, learnt_posterior = helper.load(netsdir + filename + '.pkl')
     learnt_m, learnt_S = learnt_posterior.calc_mean_and_cov() 
 
     pp_true = true_posterior.eval(xx[:, np.newaxis], log=False)
     pp_learnt = learnt_posterior.eval(xx[:, np.newaxis], log=False)
 
-    ax.plot(xx, pp_true, label='True posterior', linewidth=2, color='purple')
-    ax.plot(xx, pp_learnt, label='Learnt posterior (SNPE-A)', linewidth=2, linestyle='--', color='orange')
-    ax.text(xx[-1] - 3, pp_true[-1] + 1.4, f'True Posterior Mean: {true_m.item():.4f} \nTrue Posterior Variance: {true_S[0][0]:.4f}', color='purple', va='center')
-    ax.text(xx[-1] - 3, pp_learnt[-1] + 1, f'Learnt Posterior Mean: {learnt_m.item():.4f} \nLearnt Posterior Variance: {learnt_S[0][0]:.4f}', color='orange', va='center')
+    ax.plot(xx, pp_true, label='True posterior')
+    ax.plot(xx, pp_learnt, label='Learnt posterior (SNPE-A)', linestyle='-', color='tab:orange')
+    ax.text(xx[-1] - 3, pp_true[-1] + 1.4, f'True Posterior Mean: {true_m.item():.4f} \nTrue Posterior Variance: {true_S[0][0]:.4f}', color='tab:blue', va='center')
+    ax.text(xx[-1] - 3, pp_learnt[-1] + 1, f'Learnt Posterior Mean: {learnt_m.item():.4f} \nLearnt Posterior Variance: {learnt_S[0][0]:.4f}', color='tab:orange', va='center')
 
     ax.set_xlim(lims)
     ax.set_ylim(bottom=0)
@@ -230,52 +245,54 @@ def show_mdn_with_proposal_posterior(filename, lims=disp_lims):
     ax.grid(True)
     plt.show()
 
-
-    ########################################################
-    # load mdn
-    _, posterior = helper.load(netsdir + filename + '.pkl')
-    m, S = posterior.calc_mean_and_cov()
-
-    # plot learnt posterior
-    helper.plot_pdf_marginals(pdf=posterior, lims=disp_lims, title=f'Learnt Posterior (SNPE-A)\n Mean = {m.item():.4f}, Variance = {S[0][0]:.4f}')
-    if posterior.n_components > 1:
-        for a, x in zip(posterior.a, posterior.xs):
+    if learnt_posterior.n_components > 1:
+        for a, x in zip(learnt_posterior.a, learnt_posterior.xs):
             helper.plot_pdf_marginals(pdf=x, lims=disp_lims, title= f'Learnt Posterior (SNPE-A), a = {a:.2f}')
     
     plt.show(block=True)
 
 
-def show_mdn_with_bootstrapping_posterior():
-    """Shows the posterior learnt by the mdn using bootstrapping."""
 
-    fig = plt.figure()
+def show_mdn_with_bootstrapping_posterior():
+    """
+    Shows the posterior learnt by the mdn using bootstrapping.
+    """
+
+    # fig_dist = plt.figure()
     all_dist = np.array([])
 
     for iter in range(n_bootstrap_iter):
 
         # load approximate posterior
         _, approx_posterior, _, dist = helper.load(netsdir + 'mdn_svi_proposal_prior_{0}.pkl'.format(iter))
+        m, S = approx_posterior.calc_mean_and_cov()
 
-        # plot pdf
-        helper.plot_pdf_marginals(pdf=approx_posterior, lims=disp_lims)
+        # PLOT 1: Learnt posterior
+        title = f'Learnt Posterior (Bootstrapping), Iteration = {iter+1}\n Mean = {m.item():.4f}, Variance = {S[0][0]:.4f}'
+        helper.plot_pdf_marginals(pdf=approx_posterior, lims=disp_lims, title=title)
 
-        # plot distance histograms
-        ax = fig.add_subplot(2, round(n_bootstrap_iter/2), iter+1)
-        ax.hist(dist, bins=int(np.sqrt(dist.size)))
-        ax.set_title(f'Distance Histograms, Iteration = {iter+1}')
-        ax.set_xlim([0.0, 12.0])
-        ax.grid()
         all_dist = np.append(all_dist, dist)
 
-    # plot distance trace
-    _, ax = plt.subplots(1, 1)
+        # PLOT 2: Distance histograms
+        # ax = fig_dist.add_subplot(2, round(n_bootstrap_iter/2), iter+1)
+        # ax.hist(dist, bins=int(np.sqrt(dist.size)))
+        # ax.set_title(f'Distance Histograms, Iteration = {iter+1}')
+        # ax.set_xlim([0.0, 12.0])
+        # ax.grid()
+        
+    
+
+    # PLOT 3: Distance
+    fig, ax = plt.subplots(1, 1)
     ax.plot(all_dist, '.')
     ax.set_xlabel('samples')
     ax.set_ylabel('distance')
     ax.grid()
     ax.set_title('Distance Trace Across Bootstrapping Iterations')
+    fig.canvas.manager.set_window_title('PLOT 3')
 
     plt.show(block=True)
+
 
 if __name__ == '__main__':
     # train_proposal_prior_with_bootstrapping(save=True)
