@@ -12,8 +12,13 @@ n_bootstrap_iter = 4
 ##################################################################################
 # NETWORK TRAINING 
 ##################################################################################
+##################################################################################
+# NETWORK TRAINING 
+##################################################################################
 
 def train_proposal_prior_with_bootstrapping(save=True):
+    """Trains an MDN-SVI to return the posterior with bootstrapping."""
+    
     """Trains an MDN-SVI to return the posterior with bootstrapping."""
     
     n_samples = 200
@@ -92,6 +97,7 @@ def train_proposal_prior_with_bootstrapping(save=True):
 def train_mdn_with_proposal(save=True):
     """
     SNPE-A: Uses the prior proposal learnt by bootstrapping to train an mdn.
+    SNPE-A: Uses the prior proposal learnt by bootstrapping to train an mdn.
     """
 
     # load prior proposal
@@ -166,13 +172,18 @@ def show_mdn_posterior(filename='mdn_svi_proposal_hiddens_20_tanh_sims_1k'):
     xy = np.stack([X.flatten(), Y.flatten()], axis=1)
 
     # PLOT 3: MDN's conditional probability density
+    # PLOT 3: MDN's conditional probability density
     fig, ax = plt.subplots(1, 1)
     Z = np.exp(net.eval([xy[:, 0:1], xy[:, 1:2]])).reshape(list(X.shape))
+    ax.grid()
     ax.grid()
     ax.contour(X, Y, Z)
     ax.set_xlabel('Likelihood, x')
     ax.set_ylabel('Prior, m')
+    ax.set_xlabel('Likelihood, x')
+    ax.set_ylabel('Prior, m')
     ax.set_title('MDN Conditional Probability Density, p(m|x)')
+    fig.canvas.manager.set_window_title('PLOT 3')
     fig.canvas.manager.set_window_title('PLOT 3')
 
     # show mdn's parameters
@@ -182,7 +193,9 @@ def show_mdn_posterior(filename='mdn_svi_proposal_hiddens_20_tanh_sims_1k'):
     cols = [cmap(i) for i in np.linspace(0.0, 1.0, net.n_components)]
 
     # PLOT 4: MDN's mixing coefficients
+    # PLOT 4: MDN's mixing coefficients
     fig, ax = plt.subplots(1, 1)
+    ax.grid()
     ax.grid()
     for i in range(net.n_components):
         ax.plot(xx, a[:, i], color=cols[i], label='component {0}'.format(i))
@@ -191,20 +204,25 @@ def show_mdn_posterior(filename='mdn_svi_proposal_hiddens_20_tanh_sims_1k'):
     ax.set_ylabel('mixing coefficient')
     ax.set_title('MDN Mixing Coefficients, a(x)')
     fig.canvas.manager.set_window_title('PLOT 4')
+    fig.canvas.manager.set_window_title('PLOT 4')
     ax.legend()
 
+    # PLOT 5: MDN's means and standard deviations
     # PLOT 5: MDN's means and standard deviations
     fig, axs = plt.subplots(1, net.n_components, sharey=True)
     axs = [axs] if net.n_components == 1 else axs
     for i in range(net.n_components):
+        axs[i].grid()
         axs[i].grid()
         axs[i].plot(xx, m[i], '-', color=cols[i], label='m')
         axs[i].plot(xx, m[i] + s[i], ':', color=cols[i], label='m +/- s')
         axs[i].plot(xx, m[i] - s[i], ':', color=cols[i])
         axs[i].set_xlabel('x')
         axs[i].set_ylabel('m')
+        axs[i].set_ylabel('m')
         axs[i].set_title('component {0}'.format(i))
         axs[i].legend()
+    fig.canvas.manager.set_window_title('PLOT 5')
     fig.canvas.manager.set_window_title('PLOT 5')
 
     plt.show(block=True)
@@ -218,16 +236,23 @@ def show_mdn_with_proposal_posterior(filename='mdn_svi_proposal_hiddens_20_tanh_
     """
 
     _, ax = plt.subplots(1, 1)
+    _, ax = plt.subplots(1, 1)
     xx = np.linspace(lims[0], lims[1], 200)
     
     # show true posterior
+    
+    # show true posterior
     true_posterior = calc_posterior()
+    true_m, true_S = true_posterior.calc_mean_and_cov()
     true_m, true_S = true_posterior.calc_mean_and_cov()
 
     # show mdn's posterior
     _, learnt_posterior = helper.load(netsdir + filename + '.pkl')
     learnt_m, learnt_S = learnt_posterior.calc_mean_and_cov() 
+    _, learnt_posterior = helper.load(netsdir + filename + '.pkl')
+    learnt_m, learnt_S = learnt_posterior.calc_mean_and_cov() 
 
+    pp_true = true_posterior.eval(xx[:, np.newaxis], log=False)
     pp_true = true_posterior.eval(xx[:, np.newaxis], log=False)
     pp_learnt = learnt_posterior.eval(xx[:, np.newaxis], log=False)
 
@@ -250,12 +275,19 @@ def show_mdn_with_proposal_posterior(filename='mdn_svi_proposal_hiddens_20_tanh_
     if learnt_posterior.n_components > 1:
         for a, x in zip(learnt_posterior.a, learnt_posterior.xs):
             helper.plot_pdf_marginals(pdf=x, lims=disp_lims, title= f'Learnt Posterior (SNPE-A), a = {a:.2f}')
+    if learnt_posterior.n_components > 1:
+        for a, x in zip(learnt_posterior.a, learnt_posterior.xs):
+            helper.plot_pdf_marginals(pdf=x, lims=disp_lims, title= f'Learnt Posterior (SNPE-A), a = {a:.2f}')
     
     plt.show(block=True)
 
 
 
+
 def show_mdn_with_bootstrapping_posterior():
+    """
+    Shows the posterior learnt by the mdn using bootstrapping.
+    """
     """
     Shows the posterior learnt by the mdn using bootstrapping.
     """
@@ -267,6 +299,7 @@ def show_mdn_with_bootstrapping_posterior():
 
         # load approximate posterior
         _, approx_posterior, _, dist = helper.load(netsdir + 'mdn_svi_proposal_prior_{0}.pkl'.format(iter))
+        m, S = approx_posterior.calc_mean_and_cov()
         m, S = approx_posterior.calc_mean_and_cov()
 
         # PLOT 1: Learnt posterior
@@ -292,8 +325,10 @@ def show_mdn_with_bootstrapping_posterior():
     ax.grid()
     ax.set_title('Distance Trace Across Bootstrapping Iterations')
     fig.canvas.manager.set_window_title('PLOT 3')
+    fig.canvas.manager.set_window_title('PLOT 3')
 
     plt.show(block=True)
+
 
 
 if __name__ == '__main__':
