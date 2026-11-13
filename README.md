@@ -112,3 +112,17 @@ The emperical rule for any Gaussian distribution
 | 3        | `prior_proposal` | `approx_posterior.project_to_gaussian()`: a single Gaussian with the same mean and covariance as `approx_posterior`. |
 | 4        | `dist` | The 200 distances `calc_dist(xs[i], x_obs)` between each simulated data point and the observed one, from this iteration’s simulations. |
 
+
+`net = data[0]`
+
+`net.get_mog(x_obs)`
+
+* Returns the posterior the network learnt under the proposal. This network was trained on parameters drawn from the proposal, not the prior, so that mixture is biased towards wherever the proposal put its mass.
+* Unpruned 
+* Use this for files that hold a single network trained on prior samples 
+
+`data[1]` is `approx_posterior`
+
+* Built by taking the same mixture, pruning it, and dividing by the proposal
+* This is an estimate of the actual posterior  
+* This can have a worse result due to the division 

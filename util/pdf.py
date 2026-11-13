@@ -274,7 +274,11 @@ class MoG:
         :return: pdf or log pdf
         """
 
-        ps = np.array([c.eval(x, ii, log) for c in self.xs]).T
+        # ps holds each mixture component's density evaluated at every input row 
+        # self.xs is a list of Gaussian components in the mixture 
+        # self.a is the mixing coefficients for each component in the mixture
+
+        ps = np.array([c.eval(x, ii, log) for c in self.xs]).T      # Evaluates the Gaussian pdf for each Gaussain conponent
         res = scipy.special.logsumexp(ps + np.log(self.a), axis=1) if log else np.dot(ps, self.a)
 
         return res
@@ -378,16 +382,47 @@ class MoG:
         self.a += total_del_a / self.n_components
         self.xs = [x for i, x in enumerate(self.xs) if i not in ii]
 
-    def kl(self, other, n_samples=10000):
+    def kl(self, other, n_samples=10000, debug=False):
         """Estimates the kl from this to another pdf, i.e. KL(this | other), using monte carlo."""
 
-        x = self.gen(n_samples)
-        lp = self.eval(x, log=True)
-        lq = other.eval(x, log=True)
+        x = self.gen(n_samples)         # This generates samples from a continuous distribution (mixture of Gaussians)
+        lp = self.eval(x, log=True)     # This produces log probability densities
+        lq = other.eval(x, log=True)    
         t = lp - lq
 
         res = np.mean(t)
         err = np.std(t, ddof=1) / np.sqrt(n_samples)
+
+        if debug:
+            lo, hi = min(lp.min(), lq.min()), max(lp.max(), lq.max())
+            bins = np.linspace(lo, hi, 100)
+
+            import matplotlib.pyplot as plt
+            from matplotlib.ticker import MaxNLocator
+
+            _, ax = plt.subplots(2, 1, figsize=(8, 7))
+            ax[0].grid()
+            ax[0].hist(lq, bins=bins, alpha=0.5, label='log Q(x)')
+            ax[0].hist(lp, bins=bins, alpha=0.5, label='log P(x)')
+            ax[0].xaxis.set_major_locator(MaxNLocator(nbins=20))
+            ax[0].legend()
+            ax[0].set_title('Log Probability Densities')
+            ax[0].set_xlabel('Log Probability Density')
+            ax[0].set_ylabel('Frequency')
+
+            ax[1].grid()
+            ax[1].hist(t, bins=100, alpha=0.6, color='C0')
+            ax[1].axvline(res, color='r', lw=1, label=f'mean = {res:.3f}')
+            ax[1].axvspan(res - err, res + err, color='r', alpha=0.25, label=f'±1 SE = {err:.3f}')
+            ax[1].axvline(0, color='k', ls='--', lw=1)
+            ax[1].xaxis.set_major_locator(MaxNLocator(nbins=20))
+            ax[1].legend()
+            ax[1].set_xlabel('t = log(P(x)) − log(Q(x))')
+            ax[1].set_ylabel('Frequency')
+            ax[1].set_title('Model Log-Ratio')
+
+            plt.show()
+        
 
         return res, err
 

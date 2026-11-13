@@ -15,7 +15,7 @@ sigmas = np.array([1.0, 0.1])
 mu_a = -10.0
 mu_b = 10.0
 x_obs = 0.0
-disp_lims = [-3.5, 3.5]
+disp_lims = [-3, 3]
 
 # directory names for saving results
 datadir = 'demos/mixture_of_gaussians_demo/results/data/'

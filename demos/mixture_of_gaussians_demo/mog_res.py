@@ -1,113 +1,13 @@
 import matplotlib
-from matplotlib.lines import Line2D
+from matplotlib.colors import to_rgba
 from .mog_main import *
-from .mog_abc import run_mcmc_abc
 from .mog_mdn import n_bootstrap_iter
 
 
-def gather_results_for_rejection_abc():
-
-    eps = 10 ** np.linspace(-4.0, 0.0, 20)
-    kls = []
-    n_sims = []
-    n_samples = []
-
-    # read data
-    ms_all, _, dist = helper.load(datadir + 'sims_from_prior.pkl')
-    true_posterior = calc_posterior()
-
-    for e in eps:
-
-        # reject
-        ms = ms_all[dist < e]
-        n_sims.append(ms_all.shape[0])
-        n_samples.append(ms.shape[0])
-
-        # fit mog to samples and measure kl
-        approx_posterior = pdf.fit_mog(ms, n_components=2, tol=1.0e-12, verbose=True)
-        kl, _ = true_posterior.kl(approx_posterior, n_samples=10**6)
-        kls.append(kl)
-
-    kls = np.array(kls)
-    n_sims = np.array(n_sims, dtype=float)
-    n_samples = np.array(n_samples, dtype=float)
-
-    helper.save((eps, kls, n_sims, n_samples), plotsdir + 'rejection_abc_results.pkl')
-
-
-def gather_results_for_mcmc_abc():
-
-    eps = np.array([0.00077, 0.0022, 0.006, 0.017, 0.046, 0.13, 0.36, 1.0])
-    steps = np.array([0.01, 0.01, 0.01, 0.01, 0.01, 0.15, 1.0, 3.5])
-    kls = []
-    n_sims = []
-    n_samples = []
-    acc_rates = []
+def gather_results_for_mdn_svi():
 
     # true posterior
     true_posterior = calc_posterior()
-
-    for e, step in zip(eps, steps):
-
-        # read data
-        try:
-            ms, _, _, acc_rate, this_n_sims = helper.load(datadir + 'mcmc_abc_results_tol_{0}_step_{1}.pkl'.format(e, step))
-        except IOError:
-            run_mcmc_abc(tol=e, step=step, n_samples=50000)
-            ms, _, _, acc_rate, this_n_sims = helper.load(datadir + 'mcmc_abc_results_tol_{0}_step_{1}.pkl'.format(e, step))
-
-        n_sims.append(this_n_sims)
-        n_samples.append(helper.ess_mcmc(ms))
-        acc_rates.append(acc_rate)
-
-        # fit mog to samples and measure kl
-        approx_posterior = pdf.fit_mog(ms, n_components=2, tol=1.0e-12, verbose=True)
-        kl, _ = true_posterior.kl(approx_posterior, n_samples=10**6)
-        kls.append(kl)
-
-    kls = np.array(kls)
-    n_sims = np.array(n_sims, dtype=float)
-    n_samples = np.array(n_samples, dtype=float)
-    acc_rates = np.array(acc_rates)
-
-    helper.save((eps, kls, n_sims, n_samples, acc_rates), plotsdir + 'mcmc_abc_results.pkl')
-
-
-def gather_results_for_smc_abc():
-
-    ms_all, logweights_all, eps, n_sims = helper.load(datadir + 'smc_abc_results.pkl')
-    kls = []
-    n_samples = []
-
-    # true posterior
-    true_posterior = calc_posterior()
-
-    for ms, logweights in zip(ms_all, logweights_all):
-
-        # fit mog to samples and measure kl
-        weights = np.exp(logweights)
-        approx_posterior = pdf.fit_mog(ms, w=weights, n_components=2, tol=1.0e-12, verbose=True)
-        kl, _ = true_posterior.kl(approx_posterior, n_samples=10**6)
-        kls.append(kl)
-
-        n_samples.append(helper.ess_importance(weights))
-
-    kls = np.array(kls)
-    n_sims = np.array(n_sims, dtype=float)
-    n_samples = np.array(n_samples, dtype=float)
-
-    helper.save((eps, kls, n_sims, n_samples), plotsdir + 'smc_abc_results.pkl')
-
-
-def gather_results_for_mdn_abc():
-
-    # true posterior
-    true_posterior = calc_posterior()
-
-    # mdn trained with prior
-    net = helper.load(netsdir + 'mdn_prior_hiddens_20_tanh_sims_10k.pkl')
-    approx_posterior = net.get_mog(np.asarray([x_obs]))
-    kl_mdn_prior, _ = true_posterior.kl(approx_posterior, n_samples=10**6)
 
     # prior proposal
     _, _, prior_proposal, _ = helper.load(netsdir + 'mdn_svi_proposal_prior_{0}.pkl'.format(n_bootstrap_iter-1))
@@ -118,137 +18,124 @@ def gather_results_for_mdn_abc():
     kl_mdn_prop, _ = true_posterior.kl(approx_posterior, n_samples=10**6)
 
     # number of simulations
-    n_sims_mdn_prior = 10 ** 4
     n_sims_prior_prop = n_bootstrap_iter * 200
     n_sims_mdn_prop = n_sims_prior_prop + 1000
 
-    helper.save((kl_mdn_prior, kl_prior_prop, kl_mdn_prop, n_sims_mdn_prior, n_sims_prior_prop, n_sims_mdn_prop), plotsdir + 'mdn_abc_results.pkl')
+    helper.save((kl_prior_prop, kl_mdn_prop, n_sims_prior_prop, n_sims_mdn_prop), plotsdir + 'mdn_svi_results.pkl')
 
+
+
+##################################################################################
+# PLOTTING FUNCTIONS
+##################################################################################
 
 def plot_results():
 
-    _, kl_prior_prop, kl_mdn_prop, _, n_sims_prior_prop, n_sims_mdn_prop = helper.load(plotsdir + 'mdn_abc_results.pkl')
-
-    # plot KL vs epsilon 
-    fig, ax = plt.subplots(1, 1)
-    ax.grid()
-    ax.loglog(ax.get_xlim(), [kl_prior_prop]*2, label='MDN proposal prior')
-    ax.loglog(ax.get_xlim(), [kl_mdn_prop]*2, label='MDN trained with proposal')
-    ax.set_xlabel('Tolerance')
-    ax.set_ylabel('KL Divergence')
-    ax.set_title('KL Divergence vs Epsilon')
-    plt.legend(loc='center')
+    kl_prior_prop, kl_mdn_prop, n_sims_prior_prop, n_sims_mdn_prop = helper.load(plotsdir + 'mdn_svi_results.pkl')
 
     # plot KL Divergence vs number of simulations
     fig, ax = plt.subplots(1, 1)
     ax.grid()
-    ax.loglog(kl_prior_prop, n_sims_prior_prop, 'o', label='MDN proposal prior')
-    ax.loglog(kl_mdn_prop, n_sims_mdn_prop, 'o', label='MDN trained with proposal')
+    l1 = ax.plot(kl_prior_prop, n_sims_prior_prop, 'o', label='MDN proposal prior')
+    l2 = ax.plot(kl_mdn_prop, n_sims_mdn_prop, 'o', label='MDN trained with proposal')
+    c1, c2 = l1[0].get_color(), l2[0].get_color()
+    ax.annotate(f'KL: {kl_prior_prop:.3f}', (kl_prior_prop, n_sims_prior_prop), textcoords='offset points', xytext=(6, 6), fontweight='bold', color=c1)
+    ax.annotate(f'KL: {kl_mdn_prop:.3f}', (kl_mdn_prop, n_sims_mdn_prop), textcoords='offset points', xytext=(6, 6), fontweight='bold', color=c2)
+
     ax.set_xlabel('KL Divergence')
-    ax.set_ylabel('# Simulations per Effective Sample')
+    ax.set_ylabel('Number of Simulations')
     ax.set_title('KL Divergence vs Number of Simulations')
     plt.legend(loc='best')
     plt.show(block=True)
 
 
-def plot_learnt_posteriors(save=False):
-    lw = 2
-    fontsize=22
+def plot_learnt_posteriors(save=False, debug=False):
+    fontsize=10
     savepath = '../demos/mixture_of_gaussians_demo/results/figs/mog/'
+    kl_prior_prop, kl_mdn_prop, _, _ = helper.load(plotsdir + 'mdn_svi_results.pkl')
     matplotlib.rcParams.update({'font.size': fontsize})
     matplotlib.rc('text', usetex=False)
 
-    fig, ax = plt.subplots(1, 1)
+    # PLOT 1: Posterior Distributions
+    fig, ax = plt.subplots(1, 1, figsize=(8, 7))
+    fig.subplots_adjust(bottom=0.38) 
     xx = np.linspace(disp_lims[0], disp_lims[1], 1000)
 
     # true posterior
-    posterior = calc_posterior()
-    pp = posterior.eval(xx[:, np.newaxis], log=False)
-    ax.plot(xx, pp, label='True posterior', lw=lw)
-
-    # mdn with prior
-    net = helper.load(netsdir + 'mdn_prior_hiddens_20_tanh_sims_10k.pkl')
-    approx_posterior = net.get_mog(np.asarray([x_obs]))
-    pp = approx_posterior.eval(xx[:, np.newaxis], log=False)
-    ax.plot(xx, pp, label='MDN with prior', lw=lw)
+    true_posterior = calc_posterior()
+    pp = true_posterior.eval(xx[:, np.newaxis], log=False)
+    m_true, S_true = true_posterior.calc_mean_and_cov()
+    ax.plot(xx, pp, label='True posterior')
 
     # proposal prior
     _, _, proposal_prior, _ = helper.load(netsdir + 'mdn_svi_proposal_prior_{0}.pkl'.format(n_bootstrap_iter-1))
     pp = proposal_prior.eval(xx[:, np.newaxis], log=False)
-    ax.plot(xx, pp, label='Proposal prior', lw=lw)
+    m_proposal_prior, S_proposal_prior = proposal_prior.m, proposal_prior.S
+    ax.plot(xx, pp, label='Proposal prior')
 
-     # mdn with proposal
-    _, approx_posterior = helper.load(netsdir + 'mdn_svi_proposal_hiddens_20_tanh_sims_1k.pkl')
-    pp = approx_posterior.eval(xx[:, np.newaxis], log=False)
-    ax.plot(xx, pp, label='MDN with proposal', lw=lw)
+    # mdn with proposal
+    _, snpea_posterior = helper.load(netsdir + 'mdn_svi_proposal_hiddens_20_tanh_sims_1k.pkl')
+    pp = snpea_posterior.eval(xx[:, np.newaxis], log=False)
+    m_snpea, S_snpea = snpea_posterior.calc_mean_and_cov()
+    ax.plot(xx, pp, label='MDN with proposal')
+
+    # PLot table data
+    table_col = ('Mean', 'Variance', 'KL(P||Q)')
+    table_row = ['True Posterior', 'Proposal Prior', 'MDN with Proposal (SNPE-A)']
+    stats = [(m_true, S_true, '-'), (m_proposal_prior, S_proposal_prior, kl_prior_prop), (m_snpea, S_snpea, kl_mdn_prop)]
+    ax.grid(True)
+
+
+    # Helper functions 
+    def fmt(v):
+        try:
+            return '{:.3f}'.format(float(np.squeeze(v)))
+        except (ValueError, TypeError):
+            return ''
+    
+    cell_text = [[fmt(m), fmt(S), fmt(kl)] for m, S, kl in stats]
+    colors = [line.get_color() for line in ax.get_lines()[:3]]
+    row_colors = [to_rgba(c, 0.35) for c in colors]
+
+    ax_tab = fig.add_axes([0.0, 0.03, 1.0, 0.22])
+    ax_tab.axis('off')
+
+    w, h = 0.3, 1.0  
+    tbl = ax_tab.table(cellText=cell_text, rowLabels=table_row, colLabels=table_col, rowColours=row_colors, cellLoc='center', bbox=[(1 - (w-0.2)) / 2, (1 - (h-0.4)) / 2, w, h])
+    tbl.auto_set_font_size(False)
+    tbl.set_fontsize(fontsize)
 
     ax.set_xlim(disp_lims)
-    ax.set_ylim([0.0, 3.0])
-    ax.set_xlabel(r'$\theta$', labelpad=-1.0)
-    ax.set_yticks([])
-    ax.set_yticklabels([])
-    ax.legend(ncol=2, loc='upper center', columnspacing=0.6, handletextpad=0.1, labelspacing=0.4, borderaxespad=0.3, handlelength=1.5, fontsize=fontsize)
-    fig.subplots_adjust(bottom=0.11)
+    ax.set_ylim([0.0, 4.0])
+    ax.set_xlabel(r'$\theta$')
+    ax.set_ylabel('Probability Density')
+    
     if save: fig.savefig(savepath + 'posteriors.pdf')
 
+
+    # PLOT 2: Conditional Density 
     # grids for 2d plotting
     xx = np.linspace(-15.0, 15.0, 1000)
     yy = np.linspace(mu_a - 2.0, mu_b + 2.0, 1000)
     X, Y = np.meshgrid(xx, yy)
     xy = np.stack([X.flatten(), Y.flatten()], axis=1)
     levels = [0.75, 0.99]
-
-    # mdn with prior
-    fig, ax = plt.subplots(1, 1)
-    net = helper.load(netsdir + 'mdn_prior_hiddens_20_tanh_sims_10k.pkl')
-    Z = np.exp(net.eval([xy[:, 0:1], xy[:, 1:2]])).reshape(list(X.shape))
-    # cln = ax.contour(X, Y, helper.probs2contours(Z, levels), levels=levels, colors=['DarkRed', 'DarkGreen'])
-    # plt.setp(cln.collections, lw=lw)
-    cln = ax.contour(X, Y, helper.probs2contours(Z, levels), linewidths=lw)
-    a, ms, _ = net.eval_comps(xx[:, np.newaxis])
-    mm = np.sum(np.concatenate(ms, axis=1) * a, axis=1)
-    mln = ax.plot(xx, mm, 'b', lw=lw)
-    vln = ax.vlines(0, ax.get_ylim()[0], ax.get_ylim()[1], color='k', linestyle='--', lw=lw)
-
-    legend_handles = [
-                            mln[0],
-                            Line2D([0], [0], color='black', linewidth=lw),
-                            Line2D([0], [0], color='black', linewidth=lw),
-                            vln
-                        ]
     
-    ax.set_xlabel(r'$x$', labelpad=-1.0)
-    ax.set_ylabel(r'$\theta$', labelpad=-15.0)
-    # ax.legend([mln[0], cln.collections[0], cln.collections[1], vln], ['Mean', r'$75\%$ of mass', r'$99\%$ of mass', r'$x_o=0$'], loc='upper left', labelspacing=0.4, handletextpad=0.1, borderaxespad=0.3, handlelength=2.0, fontsize=fontsize)
-    
-    ax.legend(
-                legend_handles,
-                ['Mean', r'$75\%$ of mass', r'$99\%$ of mass', r'$x_o=0$'],
-                loc='upper left',
-                labelspacing=0.4,
-                handletextpad=0.1,
-                borderaxespad=0.3,
-                handlelength=2.0,
-                fontsize=fontsize
-            )
-    fig.subplots_adjust(bottom=0.11)
-    if save: fig.savefig(savepath + 'mdn_prior.pdf')
-
-    # mdn with proposal
     fig, ax = plt.subplots(1, 1)
+    fig.canvas.setWindowTitle('Conditional Density Estimation with MDN-SVI trained with Proposal')
+
     net, _ = helper.load(netsdir + 'mdn_svi_proposal_hiddens_20_tanh_sims_1k.pkl')
     Z = np.exp(net.eval([xy[:, 0:1], xy[:, 1:2]])).reshape(list(X.shape))
-    # cln = ax.contour(X, Y, helper.probs2contours(Z, levels), levels=levels, colors=['DarkRed', 'DarkGreen'])
-    # plt.setp(cln.collections, lw=lw)
-    cln = ax.contour(X, Y, helper.probs2contours(Z, levels), linewidths=lw)
     a, ms, _ = net.eval_comps(xx[:, np.newaxis])
-    mm = np.sum(np.concatenate(ms, axis=1) * a, axis=1)
-    mln = ax.plot(xx, mm, 'b', lw=lw)
-    vln = ax.vlines(0, ax.get_ylim()[0], ax.get_ylim()[1], color='k', linestyle='--', lw=lw)
-    ax.set_xlabel(r'$x$', labelpad=-1.0)
-    ax.set_ylabel(r'$\theta$', labelpad=-15.0)
-    # ax.legend([mln[0], cln.collections[0], cln.collections[1], vln], ['Mean', r'$75\%$ of mass', r'$99\%$ of mass', r'$x_o=0$'], loc='upper left', labelspacing=0.4, handletextpad=0.1, borderaxespad=0.3, handlelength=2.0, fontsize=fontsize)
+    cln = ax.contour(X, Y, helper.probs2contours(Z, levels), levels=levels, colors=['Red', 'Green'])        # Contour lines: The contour set (75% and 99% of mass)
+    artists, _ = cln.legend_elements()
+                       
+    mm = np.sum(np.concatenate(ms, axis=1) * a, axis=1)             # The mean of the mixture at each x as an array of numbers
+    mln = ax.plot(xx, mm, 'b')                                      # Mean line: The mean of the mixture at each x as a line
+    vln = ax.vlines(0, ax.get_ylim()[0], ax.get_ylim()[1], color='k', linestyle='--')   # The dashed vertical line at x_obs = 0
     
+    legend_handles = [mln[0], artists[0], artists[1], vln]
+  
     ax.legend(
                 legend_handles,
                 ['Mean', r'$75\%$ of mass', r'$99\%$ of mass', r'$x_o=0$'],
@@ -259,21 +146,37 @@ def plot_learnt_posteriors(save=False):
                 handlelength=2.0,
                 fontsize=fontsize
             )
-    
-    fig.subplots_adjust(bottom=0.11)
+
+    ax.set_xlabel(r'$x$', labelpad=-1.0)
+    ax.set_ylabel(r'$\theta$', labelpad=-15.0)
+    ax.grid()
     if save: fig.savefig(savepath + 'mdn_proposal.pdf')
+
+    # TEST 
+    if debug:
+        contour_values = helper.probs2contours(Z, levels)
+        colors = ['Red', 'Green']
+
+        vals, counts = np.unique(contour_values, return_counts=True)
+        print(vals)     # distinct values present
+        print(counts)   # number of grid cells holding each value
+
+        for lev, col in zip(levels, colors):
+            inside = (contour_values <= lev).astype(float)
+
+            fig, ax = plt.subplots()
+            fig.canvas.manager.set_window_title(f"Contour Level {lev}")
+
+            # Plot just this single level on the new axis
+            ax.contour(X, Y, inside, levels=[0.5], colors=col)
+            ax.set_title(f"Probability Boundary: {lev}")
 
     plt.show(block=True)
 
+
 if '__main__' == __name__:
 
-    # gather results
-    # gather_results_for_rejection_abc()
-    # gather_results_for_mcmc_abc()
+    # gather_results_for_mdn_svi()
 
-    # gather_results_for_smc_abc()
-    # gather_results_for_mdn_abc()
-
-    # # plot results
     plot_results()
-    # plot_learnt_posteriors(save=False)
+    plot_learnt_posteriors(save=False) # The probability density plot is not correct. Somehow need to fix this.

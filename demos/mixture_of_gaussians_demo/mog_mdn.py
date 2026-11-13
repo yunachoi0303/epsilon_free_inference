@@ -68,7 +68,7 @@ def train_proposal_prior_with_bootstrapping(save=True):
         trainer = Trainer.Trainer(
             model=net,
             trn_data=[xs[:, np.newaxis], ms[:, np.newaxis]],
-            trn_loss = net.mlprob,
+            trn_loss = net.mlprob + regularizer / n_samples,
             trn_target=net.y
         )
         trainer.train(
@@ -122,9 +122,9 @@ def train_mdn_with_proposal(save=True):
     )
 
     # calculate the approximate posterior
-    mdn_mog = net.get_mog(np.asarray([x_obs]))
-    mdn_mog.prune_negligible_components(1.0e-3)
-    approx_posterior = mdn_mog / prior_proposal
+    mdn_mog = net.get_mog(np.asarray([x_obs]))      # Get the MoG representation of the MDN for the given observation x_obs
+    mdn_mog.prune_negligible_components(1.0e-3)     # Removes all the components whose mixing coefficient is less than a threshold: 1.0e-3 
+    approx_posterior = mdn_mog / prior_proposal     # Divides the learnt posterior by the prior proposal to get the final approximate posterior
 
     # save the net
     if save:
@@ -137,16 +137,16 @@ def train_mdn_with_proposal(save=True):
 # PLOTTING FUNCTIONS
 ##################################################################################
 
-def show_mdn_posterior(filename):
+def show_mdn_posterior(filename='mdn_svi_proposal_hiddens_20_tanh_sims_1k'):
     """Shows the posterior learnt by the mdn saved in the given file."""
 
     # load mdn
     data = helper.load(netsdir + filename + '.pkl')
     net = data[0] if isinstance(data, tuple) else data
-
+    # learnt_posterior = data[1]
+    learnt_posterior = net.get_mog(np.asarray([x_obs]))
 
     # PLOT 1: Learnt posterior
-    learnt_posterior = net.get_mog(np.asarray([x_obs]))
     m, S = learnt_posterior.calc_mean_and_cov()
 
     title = f'Learnt Posterior (MDN)\n Mean = {m.item():.4f}, Variance = {S[0][0]:.4f}'
@@ -212,7 +212,7 @@ def show_mdn_posterior(filename):
 
 
 
-def show_mdn_with_proposal_posterior(filename, lims=disp_lims):
+def show_mdn_with_proposal_posterior(filename='mdn_svi_proposal_hiddens_20_tanh_sims_1k', lims=disp_lims, show_all=True):
     """
     Shows the posterior learnt by the mdn saved in the given file.
     """
@@ -236,6 +236,8 @@ def show_mdn_with_proposal_posterior(filename, lims=disp_lims):
     ax.text(xx[-1] - 3, pp_true[-1] + 1.4, f'True Posterior Mean: {true_m.item():.4f} \nTrue Posterior Variance: {true_S[0][0]:.4f}', color='tab:blue', va='center')
     ax.text(xx[-1] - 3, pp_learnt[-1] + 1, f'Learnt Posterior Mean: {learnt_m.item():.4f} \nLearnt Posterior Variance: {learnt_S[0][0]:.4f}', color='tab:orange', va='center')
 
+    # if show_all:
+        
     ax.set_xlim(lims)
     ax.set_ylim(bottom=0)
     ax.set_xlabel('Parameter')
@@ -258,7 +260,7 @@ def show_mdn_with_bootstrapping_posterior():
     Shows the posterior learnt by the mdn using bootstrapping.
     """
 
-    # fig_dist = plt.figure()
+    fig_dist = plt.figure()
     all_dist = np.array([])
 
     for iter in range(n_bootstrap_iter):
@@ -274,11 +276,11 @@ def show_mdn_with_bootstrapping_posterior():
         all_dist = np.append(all_dist, dist)
 
         # PLOT 2: Distance histograms
-        # ax = fig_dist.add_subplot(2, round(n_bootstrap_iter/2), iter+1)
-        # ax.hist(dist, bins=int(np.sqrt(dist.size)))
-        # ax.set_title(f'Distance Histograms, Iteration = {iter+1}')
-        # ax.set_xlim([0.0, 12.0])
-        # ax.grid()
+        ax = fig_dist.add_subplot(2, round(n_bootstrap_iter/2), iter+1)
+        ax.hist(dist, bins=int(np.sqrt(dist.size)))
+        ax.set_title(f'Distance Histograms, Iteration = {iter+1}')
+        ax.set_xlim([0.0, 12.0])
+        ax.grid()
         
     
 
@@ -296,9 +298,9 @@ def show_mdn_with_bootstrapping_posterior():
 
 if __name__ == '__main__':
     # train_proposal_prior_with_bootstrapping(save=True)
-    # train_mdn_with_proposal(save=True)
+    train_mdn_with_proposal(save=True)
 
-    # show_mdn_posterior(filename='mdn_svi_proposal_hiddens_20_tanh_sims_1k')
-    show_mdn_with_proposal_posterior(filename='mdn_svi_proposal_hiddens_20_tanh_sims_1k')
+    # show_mdn_posterior()
+    # show_mdn_with_proposal_posterior()
     # show_mdn_with_bootstrapping_posterior()
 
